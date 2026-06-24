@@ -1,0 +1,131 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import { motion } from "framer-motion";
+import { ArrowLeft, Send, Loader2 } from "lucide-react";
+import { createClient } from "@/lib/supabase";
+import { useAuth } from "@/context/AuthContext";
+import { formatTime } from "@/lib/utils";
+import toast from "react-hot-toast";
+import { useRouter } from "next/navigation";
+
+type Message = {
+  id: string;
+  sender_id: string;
+  content: string;
+  created_at: string;
+};
+
+export default function AdminMessageDetailPage({ params }: { params: { id: string } }) {
+  const { user } = useAuth();
+  const router = useRouter();
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [newMsg, setNewMsg] = useState("");
+  const [sending, setSending] = useState(false);
+  const [subject, setSubject] = useState("");
+  const [residentId, setResidentId] = useState("");
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const supabase = createClient();
+
+  useEffect(() => {
+    async function load() {
+      const { data: conv } = await supabase
+        .from("conversations")
+        .select("subject, resident_id")
+        .eq("id", params.id)
+        .single();
+      if (conv) { setSubject(conv.subject); setResidentId(conv.resident_id); }
+
+      const { data } = await supabase
+        .from("messages")
+        .select("*")
+        .eq("conversation_id", params.id)
+        .order("created_at", { ascending: true });
+      setMessages((data as Message[]) || []);
+      setLoading(false);
+
+      // Mark as read
+      await supabase.from("conversations").update({ unread_admin: 0 }).eq("id", params.id);
+    }
+    load();
+
+    const channel = supabase
+      .channel(`admin-messages-${params.id}`)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `conversation_id=eq.${params.id}` }, (payload) => {
+        setMessages((prev) => [...prev, payload.new as Message]);
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [params.id]);
+
+  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
+
+  async function sendMessage() {
+    if (!newMsg.trim() || !user) return;
+    setSending(true);
+    try {
+      await supabase.from("messages").insert({
+        conversation_id: params.id,
+        sender_id: user.id,
+        content: newMsg.trim(),
+      });
+      await supabase.from("conversations").update({
+        last_message: newMsg.trim(),
+        last_message_at: new Date().toISOString(),
+        unread_resident: 1,
+      }).eq("id", params.id);
+      setNewMsg("");
+    } catch { toast.error("Failed to send message"); }
+    setSending(false);
+  }
+
+  return (
+    <div className="flex flex-col h-screen pt-14" style={{ background: "var(--bg)" }}>
+      <div className="flex items-center gap-3 px-4 py-3 border-b border-themed" style={{ background: "var(--surface)" }}>
+        <button onClick={() => router.back()} className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/5">
+          <ArrowLeft size={18} style={{ color: "var(--text)" }} />
+        </button>
+        <div>
+          <p className="font-semibold text-sm" style={{ color: "var(--text)" }}>{subject}</p>
+          <p className="text-xs" style={{ color: "var(--text-muted)" }}>Resident</p>
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-4 space-y-3 pb-24">
+        {loading && <div className="flex justify-center py-8"><Loader2 size={24} className="animate-spin" style={{ color: "var(--primary)" }} /></div>}
+        {messages.map((msg, i) => {
+          const isMe = msg.sender_id === user?.id;
+          return (
+            <motion.div key={msg.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }}
+              className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
+              <div
+                className={`max-w-[75%] px-4 py-2.5 rounded-2xl text-sm ${isMe ? "bg-primary-500 text-white rounded-br-sm" : "rounded-bl-sm"}`}
+                style={!isMe ? { background: "var(--surface-2)", color: "var(--text)" } : {}>
+                <p>{msg.content}</p>
+                <p className={`text-[10px] mt-1 ${isMe ? "text-white/60" : ""}`} style={!isMe ? { color: "var(--text-muted)" } : {}}>
+                  {formatTime(msg.created_at)}
+                </p>
+              </div>
+            </motion.div>
+          );
+        })}
+        <div ref={bottomRef} />
+      </div>
+
+      <div className="fixed bottom-0 left-0 right-0 px-4 py-3 border-t border-themed flex items-center gap-3 max-w-lg mx-auto"
+        style={{ background: "var(--surface)", bottom: "64px" }}>
+        <input value={newMsg} onChange={(e) => setNewMsg(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendMessage()}
+          placeholder="Reply to resident..."
+          className="flex-1 text-sm rounded-xl px-4 py-2.5 outline-none"
+          style={{ background: "var(--surface-2)", color: "var(--text)", border: "1px solid var(--border)" }} />
+        <button onClick={sendMessage} disabled={sending || !newMsg.trim()}
+          className="w-10 h-10 rounded-xl flex items-center justify-center text-white disabled:opacity-50 flex-shrink-0"
+          style={{ background: "var(--primary)" }}>
+          {sending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+        </button>
+      </div>
+    </div>
+  );
+}
