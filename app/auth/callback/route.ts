@@ -6,7 +6,6 @@ export async function GET(request: NextRequest) {
   const code = searchParams.get("code");
 
   if (code) {
-    // Build the redirect response first so we can attach cookies to it
     const response = NextResponse.redirect(`${origin}/`);
 
     const supabase = createServerClient(
@@ -17,9 +16,9 @@ export async function GET(request: NextRequest) {
           getAll() {
             return request.cookies.getAll();
           },
-          setAll(cookiesToSet) {
+          setAll(cookiesToSet: { name: string; value: string; options?: Record<string, unknown> }[]) {
             cookiesToSet.forEach(({ name, value, options }) => {
-              response.cookies.set(name, value, options);
+              response.cookies.set(name, value, options as Parameters<typeof response.cookies.set>[2]);
             });
           },
         },
@@ -30,6 +29,6 @@ export async function GET(request: NextRequest) {
     if (!error) return response;
   }
 
-  // Code missing or exchange failed — back to login
   return NextResponse.redirect(`${origin}/login?error=oauth`);
 }
+
