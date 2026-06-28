@@ -1,5 +1,6 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 /** Merge Tailwind classes safely */
 export function cn(...inputs: ClassValue[]) {
@@ -118,7 +119,8 @@ export async function compressImage(
 
 /** Upload image to Supabase storage */
 export async function uploadImage(
-  supabase: ReturnType<typeof import("@/lib/supabase").createClient>,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: SupabaseClient<any>,
   file: File,
   userId: string
 ): Promise<string> {
