@@ -24,7 +24,7 @@ export default function AdminMessageDetailPage({ params }: { params: { id: strin
   const [newMsg, setNewMsg] = useState("");
   const [sending, setSending] = useState(false);
   const [subject, setSubject] = useState("");
-  const [residentId, setResidentId] = useState("");
+
   const bottomRef = useRef<HTMLDivElement>(null);
   const supabase = createClient();
 
@@ -35,7 +35,7 @@ export default function AdminMessageDetailPage({ params }: { params: { id: strin
         .select("subject, resident_id")
         .eq("id", params.id)
         .single();
-      if (conv) { setSubject(conv.subject); setResidentId(conv.resident_id); }
+      if (conv) { setSubject(conv.subject); }
 
       const { data } = await supabase
         .from("messages")

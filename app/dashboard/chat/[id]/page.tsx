@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 import { ArrowLeft, Send, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthContext";
-import { formatTime, timeAgo } from "@/lib/utils";
+import { formatTime } from "@/lib/utils";
 import toast from "react-hot-toast";
 import { useRouter } from "next/navigation";
 
