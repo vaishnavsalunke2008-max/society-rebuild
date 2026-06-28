@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import { ThemeProvider } from "next-themes";
 import { Toaster } from "react-hot-toast";
 import { AuthProvider } from "@/context/AuthContext";
