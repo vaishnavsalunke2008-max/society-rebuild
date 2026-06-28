@@ -5,7 +5,8 @@ import { motion } from "framer-motion";
 import { CalendarDays, MapPin, Users, CheckCircle, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthContext";
-import { formatDate, formatTime, timeAgo } from "@/lib/utils";
+import { formatDate, formatTime } from "@/lib/utils";
+import { useLanguage } from "@/context/LanguageContext";
 import toast from "react-hot-toast";
 import Image from "next/image";
 
@@ -23,6 +24,7 @@ type Event = {
 
 export default function EventsPage() {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const supabase = createClient();
@@ -85,8 +87,8 @@ export default function EventsPage() {
           <CalendarDays size={20} className="text-emerald-600 dark:text-emerald-400" />
         </div>
         <div>
-          <h1 className="text-xl font-bold" style={{ color: "var(--text)" }}>Society Events</h1>
-          <p className="text-xs" style={{ color: "var(--text-muted)" }}>Upcoming activities</p>
+          <h1 className="text-xl font-bold" style={{ color: "var(--text)" }}>{t("events.title")}</h1>
+          <p className="text-xs" style={{ color: "var(--text-muted)" }}>{t("events.subtitle")}</p>
         </div>
       </div>
 
@@ -101,8 +103,8 @@ export default function EventsPage() {
           <div className="w-16 h-16 rounded-2xl flex items-center justify-center" style={{ background: "var(--surface-2)" }}>
             <CalendarDays size={28} style={{ color: "var(--text-muted)" }} />
           </div>
-          <p className="font-semibold" style={{ color: "var(--text)" }}>No events yet</p>
-          <p className="text-sm" style={{ color: "var(--text-muted)" }}>Events will appear here when created</p>
+          <p className="font-semibold" style={{ color: "var(--text)" }}>{t("events.empty")}</p>
+          <p className="text-sm" style={{ color: "var(--text-muted)" }}>{t("events.emptySub")}</p>
         </div>
       )}
 
@@ -141,7 +143,7 @@ export default function EventsPage() {
                           : "bg-emerald-100 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
                       }`}
                     >
-                      {past ? "Past" : "Upcoming"}
+                      {past ? t("events.past") : t("events.upcoming")}
                     </span>
                   </div>
                   <h3 className="font-semibold text-sm leading-snug" style={{ color: "var(--text)" }}>
@@ -165,7 +167,7 @@ export default function EventsPage() {
                     </div>
                     <div className="flex items-center gap-1.5 text-xs" style={{ color: "var(--text-muted)" }}>
                       <Users size={12} />
-                      {event.rsvp_count} attending
+                      {event.rsvp_count} {t("events.attending")}
                     </div>
                   </div>
                 </div>
@@ -181,14 +183,7 @@ export default function EventsPage() {
                   }`}
                   style={!event.rsvped ? { border: "1px solid var(--border)" } : {}}
                 >
-                  {event.rsvped ? (
-                    <>
-                      <CheckCircle size={16} />
-                      Going!
-                    </>
-                  ) : (
-                    "RSVP — I'm attending"
-                  )}
+                  {event.rsvped ? (<>{t("events.going")}</>) : t("events.rsvp")}
                 </button>
               )}
             </div>

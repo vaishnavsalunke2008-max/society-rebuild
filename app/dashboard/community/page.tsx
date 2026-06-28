@@ -15,6 +15,7 @@ import {
 import { createClient } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthContext";
 import { getInitials, timeAgo, uploadImage } from "@/lib/utils";
+import { useLanguage } from "@/context/LanguageContext";
 import toast from "react-hot-toast";
 import Image from "next/image";
 
@@ -31,6 +32,7 @@ type Post = {
 
 export default function CommunityPage() {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
@@ -127,8 +129,8 @@ export default function CommunityPage() {
             <Users size={20} className="text-emerald-600 dark:text-emerald-400" />
           </div>
           <div>
-            <h1 className="text-xl font-bold" style={{ color: "var(--text)" }}>Community</h1>
-            <p className="text-xs" style={{ color: "var(--text-muted)" }}>Residents feed</p>
+            <h1 className="text-xl font-bold" style={{ color: "var(--text)" }}>{t("community.title")}</h1>
+            <p className="text-xs" style={{ color: "var(--text-muted)" }}>{t("community.subtitle")}</p>
           </div>
         </div>
         <button
@@ -137,7 +139,7 @@ export default function CommunityPage() {
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500 text-white text-sm font-semibold"
         >
           <Plus size={16} />
-          Post
+          {t("community.post")}
         </button>
       </div>
 
@@ -162,7 +164,7 @@ export default function CommunityPage() {
               <textarea
                 value={content}
                 onChange={(e) => setContent(e.target.value.slice(0, 500))}
-                placeholder="What's on your mind?"
+                placeholder={t("community.whats")}
                 rows={3}
                 className="w-full text-sm rounded-xl p-3 resize-none outline-none"
                 style={{
@@ -194,7 +196,7 @@ export default function CommunityPage() {
                   style={{ color: "var(--text-muted)" }}
                 >
                   <ImageIcon size={18} />
-                  Photo
+                  {t("community.photo")}
                 </button>
                 <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleImagePick} />
                 <button
@@ -203,7 +205,7 @@ export default function CommunityPage() {
                   className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500 text-white text-sm font-semibold disabled:opacity-50"
                 >
                   {submitting ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-                  Share
+                  {t("community.share")}
                 </button>
               </div>
             </div>
@@ -224,8 +226,8 @@ export default function CommunityPage() {
           <div className="w-16 h-16 rounded-2xl flex items-center justify-center" style={{ background: "var(--surface-2)" }}>
             <Users size={28} style={{ color: "var(--text-muted)" }} />
           </div>
-          <p className="font-semibold" style={{ color: "var(--text)" }}>No posts yet</p>
-          <p className="text-sm" style={{ color: "var(--text-muted)" }}>Be the first to share something!</p>
+          <p className="font-semibold" style={{ color: "var(--text)" }}>{t("community.empty")}</p>
+          <p className="text-sm" style={{ color: "var(--text-muted)" }}>{t("community.emptySub")}</p>
         </div>
       )}
 
@@ -279,7 +281,7 @@ export default function CommunityPage() {
               style={{ color: "var(--text-muted)" }}
             >
               <MessageSquare size={18} />
-              Comment
+              <span className="text-xs font-medium" style={{ color: "var(--text-muted)" }}>{t("community.comment")}</span>
             </button>
           </div>
         </motion.div>

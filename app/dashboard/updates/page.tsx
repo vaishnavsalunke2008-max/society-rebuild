@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { Bell, ChevronRight, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase";
 import { timeAgo } from "@/lib/utils";
+import { useLanguage } from "@/context/LanguageContext";
 import Image from "next/image";
 
 type Notice = {
@@ -25,6 +26,7 @@ const categoryConfig: Record<string, { label: string; cls: string }> = {
 };
 
 export default function UpdatesPage() {
+  const { t } = useLanguage();
   const [notices, setNotices] = useState<Notice[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -48,8 +50,8 @@ export default function UpdatesPage() {
           <Bell size={20} style={{ color: "var(--primary)" }} />
         </div>
         <div>
-          <h1 className="text-xl font-bold" style={{ color: "var(--text)" }}>Updates</h1>
-          <p className="text-xs" style={{ color: "var(--text-muted)" }}>Notices & Announcements</p>
+          <h1 className="text-xl font-bold" style={{ color: "var(--text)" }}>{t("updates.title")}</h1>
+          <p className="text-xs" style={{ color: "var(--text-muted)" }}>{t("updates.subtitle")}</p>
         </div>
       </div>
 
@@ -66,9 +68,9 @@ export default function UpdatesPage() {
           <div className="w-16 h-16 rounded-2xl flex items-center justify-center" style={{ background: "var(--surface-2)" }}>
             <Bell size={28} style={{ color: "var(--text-muted)" }} />
           </div>
-          <p className="font-semibold" style={{ color: "var(--text)" }}>No notices yet</p>
+          <p className="font-semibold" style={{ color: "var(--text)" }}>{t("updates.empty")}</p>
           <p className="text-sm text-center" style={{ color: "var(--text-muted)" }}>
-            Check back later for society announcements
+            {t("updates.emptySub")}
           </p>
         </div>
       )}

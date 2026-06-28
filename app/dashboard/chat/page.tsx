@@ -12,6 +12,7 @@ import {
 import { createClient } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthContext";
 import { getInitials, timeAgo } from "@/lib/utils";
+import { useLanguage } from "@/context/LanguageContext";
 import toast from "react-hot-toast";
 import { useRouter } from "next/navigation";
 
@@ -26,6 +27,7 @@ type Conversation = {
 
 export default function ChatPage() {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const router = useRouter();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -90,8 +92,8 @@ export default function ChatPage() {
             <MessageCircle size={20} style={{ color: "var(--primary)" }} />
           </div>
           <div>
-            <h1 className="text-xl font-bold" style={{ color: "var(--text)" }}>Chat</h1>
-            <p className="text-xs" style={{ color: "var(--text-muted)" }}>Message the admin</p>
+            <h1 className="text-xl font-bold" style={{ color: "var(--text)" }}>{t("chat.title")}</h1>
+            <p className="text-xs" style={{ color: "var(--text-muted)" }}>{t("chat.subtitle")}</p>
           </div>
         </div>
         <button
@@ -101,7 +103,7 @@ export default function ChatPage() {
           style={{ background: "var(--primary)" }}
         >
           <Plus size={16} />
-          New
+          {t("chat.new")}
         </button>
       </div>
 
@@ -115,18 +117,18 @@ export default function ChatPage() {
             className="overflow-hidden"
           >
             <div className="glass rounded-2xl p-4 space-y-3">
-              <h3 className="font-semibold text-sm" style={{ color: "var(--text)" }}>New Conversation</h3>
+              <h3 className="font-semibold text-sm" style={{ color: "var(--text)" }}>{t("chat.newConv")}</h3>
               <input
                 value={subject}
                 onChange={(e) => setSubject(e.target.value)}
-                placeholder="Subject"
+                placeholder={t("chat.subject")}
                 className="w-full text-sm rounded-xl p-3 outline-none"
                 style={{ background: "var(--surface-2)", color: "var(--text)", border: "1px solid var(--border)" }}
               />
               <textarea
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
-                placeholder="Write your message..."
+                placeholder={t("chat.message")}
                 rows={4}
                 className="w-full text-sm rounded-xl p-3 resize-none outline-none"
                 style={{ background: "var(--surface-2)", color: "var(--text)", border: "1px solid var(--border)" }}
@@ -138,7 +140,7 @@ export default function ChatPage() {
                 style={{ background: "linear-gradient(135deg, var(--primary), #4f46e5)" }}
               >
                 {submitting ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-                Send Message
+                {t("chat.send")}
               </button>
             </div>
           </motion.div>
@@ -156,8 +158,8 @@ export default function ChatPage() {
           <div className="w-16 h-16 rounded-2xl flex items-center justify-center" style={{ background: "var(--surface-2)" }}>
             <MessageCircle size={28} style={{ color: "var(--text-muted)" }} />
           </div>
-          <p className="font-semibold" style={{ color: "var(--text)" }}>No conversations</p>
-          <p className="text-sm" style={{ color: "var(--text-muted)" }}>Tap "+ New" to message the admin</p>
+          <p className="font-semibold" style={{ color: "var(--text)" }}>{t("chat.empty")}</p>
+          <p className="text-sm" style={{ color: "var(--text-muted)" }}>{t("chat.emptySub")}</p>
         </div>
       )}
 

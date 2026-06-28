@@ -15,6 +15,7 @@ import {
 import { createClient } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthContext";
 import { statusColor, timeAgo, uploadImage } from "@/lib/utils";
+import { useLanguage } from "@/context/LanguageContext";
 import toast from "react-hot-toast";
 import Image from "next/image";
 
@@ -35,6 +36,7 @@ const CATEGORIES = [
 
 export default function ComplaintsPage() {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [complaints, setComplaints] = useState<Complaint[]>([]);
   const [loading, setLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
@@ -103,8 +105,8 @@ export default function ComplaintsPage() {
             <AlertCircle size={20} className="text-red-600 dark:text-red-400" />
           </div>
           <div>
-            <h1 className="text-xl font-bold" style={{ color: "var(--text)" }}>Complaints</h1>
-            <p className="text-xs" style={{ color: "var(--text-muted)" }}>Raise & track issues</p>
+            <h1 className="text-xl font-bold" style={{ color: "var(--text)" }}>{t("complaints.title")}</h1>
+            <p className="text-xs" style={{ color: "var(--text-muted)" }}>{t("complaints.subtitle")}</p>
           </div>
         </div>
         <button
@@ -113,7 +115,7 @@ export default function ComplaintsPage() {
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-500 text-white text-sm font-semibold"
         >
           <Plus size={16} />
-          Raise
+          {t("complaints.raise")}
         </button>
       </div>
 
@@ -127,7 +129,7 @@ export default function ComplaintsPage() {
             className="overflow-hidden"
           >
             <div className="glass rounded-2xl p-4 space-y-4">
-              <h3 className="font-semibold text-sm" style={{ color: "var(--text)" }}>New Complaint</h3>
+              <h3 className="font-semibold text-sm" style={{ color: "var(--text)" }}>{t("complaints.new")}</h3>
 
               {/* Category Pills */}
               <div className="flex flex-wrap gap-2">
@@ -149,14 +151,14 @@ export default function ComplaintsPage() {
               <input
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="Title"
+                placeholder={t("complaints.title2")}
                 className="w-full text-sm rounded-xl p-3 outline-none"
                 style={{ background: "var(--surface-2)", color: "var(--text)", border: "1px solid var(--border)" }}
               />
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="Describe the issue..."
+                placeholder={t("complaints.desc")}
                 rows={3}
                 className="w-full text-sm rounded-xl p-3 resize-none outline-none"
                 style={{ background: "var(--surface-2)", color: "var(--text)", border: "1px solid var(--border)" }}
@@ -194,7 +196,7 @@ export default function ComplaintsPage() {
                   style={{ background: "linear-gradient(135deg, #ef4444, #dc2626)" }}
                 >
                   {submitting ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-                  Submit
+                  {t("complaints.submit")}
                 </button>
               </div>
             </div>
@@ -213,8 +215,8 @@ export default function ComplaintsPage() {
           <div className="w-16 h-16 rounded-2xl flex items-center justify-center" style={{ background: "var(--surface-2)" }}>
             <AlertCircle size={28} style={{ color: "var(--text-muted)" }} />
           </div>
-          <p className="font-semibold" style={{ color: "var(--text)" }}>No complaints raised</p>
-          <p className="text-sm" style={{ color: "var(--text-muted)" }}>Tap "+ Raise" to report an issue</p>
+          <p className="font-semibold" style={{ color: "var(--text)" }}>{t("complaints.empty")}</p>
+          <p className="text-sm" style={{ color: "var(--text-muted)" }}>{t("complaints.emptySub")}</p>
         </div>
       )}
 
