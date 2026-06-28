@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Building2, User, Hash, Lock, ArrowRight, Loader2, CheckCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase";
@@ -27,6 +27,17 @@ export default function OnboardingPage() {
   const [adminCode, setAdminCode] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
+  // Pre-fill name from Google account
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user?.user_metadata?.full_name) {
+        setFullName(data.user.user_metadata.full_name);
+      } else if (data.user?.user_metadata?.name) {
+        setFullName(data.user.user_metadata.name);
+      }
+    });
+  }, []);
+
   async function handleSubmit() {
     if (!fullName.trim()) return toast.error("Please enter your name");
     if (!flatNumber.trim()) return toast.error("Please enter your flat number");
@@ -37,11 +48,11 @@ export default function OnboardingPage() {
     try {
       const profile = {
         id: authUserId,
-        email: null,
+        email: (await supabase.auth.getUser()).data.user?.email ?? null,
         full_name: fullName.trim(),
         flat_number: flatNumber.trim().toUpperCase(),
         role,
-        avatar_url: null,
+        avatar_url: (await supabase.auth.getUser()).data.user?.user_metadata?.avatar_url ?? null,
       };
 
       const { error } = await supabase.from("users").upsert(profile);

@@ -1,12 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { motion } from "framer-motion";
 import { Building2, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase";
 import { useSearchParams } from "next/navigation";
 
-export default function LoginPage() {
+function LoginContent() {
   const [loading, setLoading] = useState(false);
   const searchParams = useSearchParams();
   const error = searchParams.get("error");
@@ -28,24 +28,14 @@ export default function LoginPage() {
       console.error("OAuth error:", error);
       setLoading(false);
     }
-    // No need to set loading false on success — page will redirect
   }
 
   return (
-    <div
-      className="min-h-screen flex flex-col items-center justify-center p-6"
-      style={{ background: "var(--bg)" }}
-    >
-      {/* Decorative background */}
+    <div className="min-h-screen flex flex-col items-center justify-center p-6" style={{ background: "var(--bg)" }}>
+      {/* Decorative blobs */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div
-          className="absolute -top-40 -right-40 w-96 h-96 rounded-full opacity-20 blur-3xl"
-          style={{ background: "var(--primary)" }}
-        />
-        <div
-          className="absolute -bottom-40 -left-40 w-96 h-96 rounded-full opacity-10 blur-3xl"
-          style={{ background: "var(--primary)" }}
-        />
+        <div className="absolute -top-40 -right-40 w-96 h-96 rounded-full opacity-20 blur-3xl" style={{ background: "var(--primary)" }} />
+        <div className="absolute -bottom-40 -left-40 w-96 h-96 rounded-full opacity-10 blur-3xl" style={{ background: "var(--primary)" }} />
       </div>
 
       {/* Logo */}
@@ -62,12 +52,8 @@ export default function LoginPage() {
           <Building2 size={38} className="text-white" />
         </div>
         <div className="text-center">
-          <h1 className="text-3xl font-extrabold tracking-tight" style={{ color: "var(--text)" }}>
-            SocietyHub
-          </h1>
-          <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>
-            Smart apartment management
-          </p>
+          <h1 className="text-3xl font-extrabold tracking-tight" style={{ color: "var(--text)" }}>SocietyHub</h1>
+          <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>Smart apartment management</p>
         </div>
       </motion.div>
 
@@ -79,15 +65,10 @@ export default function LoginPage() {
         className="w-full max-w-sm glass rounded-3xl p-7 space-y-6"
       >
         <div className="text-center">
-          <h2 className="text-xl font-bold" style={{ color: "var(--text)" }}>
-            Welcome back
-          </h2>
-          <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>
-            Sign in to your society account
-          </p>
+          <h2 className="text-xl font-bold" style={{ color: "var(--text)" }}>Welcome back</h2>
+          <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>Sign in to your society account</p>
         </div>
 
-        {/* Error */}
         {error && (
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
@@ -104,16 +85,11 @@ export default function LoginPage() {
           onClick={signInWithGoogle}
           disabled={loading}
           className="w-full flex items-center justify-center gap-3 py-3.5 rounded-2xl font-semibold text-sm transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-60 disabled:scale-100"
-          style={{
-            background: "var(--surface-2)",
-            color: "var(--text)",
-            border: "1px solid var(--border)",
-          }}
+          style={{ background: "var(--surface-2)", color: "var(--text)", border: "1px solid var(--border)" }}
         >
           {loading ? (
             <Loader2 size={20} className="animate-spin" style={{ color: "var(--primary)" }} />
           ) : (
-            /* Google logo SVG */
             <svg width="20" height="20" viewBox="0 0 24 24">
               <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
               <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
@@ -129,7 +105,7 @@ export default function LoginPage() {
         </p>
       </motion.div>
 
-      {/* Features preview */}
+      {/* Feature preview */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -137,11 +113,21 @@ export default function LoginPage() {
         className="mt-8 flex items-center gap-6"
       >
         {["📢 Notices", "🏘️ Community", "💬 Chat"].map((f) => (
-          <span key={f} className="text-xs font-medium" style={{ color: "var(--text-muted)" }}>
-            {f}
-          </span>
+          <span key={f} className="text-xs font-medium" style={{ color: "var(--text-muted)" }}>{f}</span>
         ))}
       </motion.div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center" style={{ background: "var(--bg)" }}>
+        <Building2 size={32} style={{ color: "var(--primary)" }} className="animate-pulse" />
+      </div>
+    }>
+      <LoginContent />
+    </Suspense>
   );
 }
