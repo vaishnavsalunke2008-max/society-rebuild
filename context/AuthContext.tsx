@@ -39,79 +39,46 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const supabase = createClient();
 
-    async function initSession() {
-      try {
-        // 1. Check for existing session first
-        const { data: { session } } = await supabase.auth.getSession();
-
-        if (session?.user) {
-          await loadOrOnboard(supabase, session.user.id);
-        } else {
-          // 2. No session — sign in anonymously (works now that it's enabled)
-          const { data: anonData, error: anonError } = await supabase.auth.signInAnonymously();
-
-          if (anonError || !anonData.session?.user) {
-            console.error("Anonymous sign-in failed:", anonError);
-            setLoading(false);
-            return;
-          }
-
-          await loadOrOnboard(supabase, anonData.session.user.id);
-        }
-      } catch (err) {
-        console.error("Auth init error:", err);
-        setLoading(false);
-      }
-    }
-
-    async function loadOrOnboard(supabase: ReturnType<typeof createClient>, uid: string) {
+    async function loadProfile(uid: string) {
       setAuthUserId(uid);
-
-      // Check if this user has a profile yet
-      const { data: profile, error } = await supabase
+      const { data: profile } = await supabase
         .from("users")
         .select("*")
         .eq("id", uid)
         .maybeSingle();
 
-      if (error) {
-        console.error("Profile fetch error:", error);
-      }
-
       if (profile) {
-        // Existing user — load their profile
         setUser(profile as UserProfile);
         setNeedsOnboarding(false);
       } else {
-        // New user — they need to go through onboarding
-        setNeedsOnboarding(true);
         setUser(null);
+        setNeedsOnboarding(true);
       }
-
       setLoading(false);
     }
 
-    initSession();
-
-    // Listen for auth state changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === "SIGNED_IN" && session?.user) {
-        const { data: profile } = await supabase
-          .from("users")
-          .select("*")
-          .eq("id", session.user.id)
-          .maybeSingle();
-
-        if (profile) {
-          setUser(profile as UserProfile);
-          setNeedsOnboarding(false);
-        }
-      } else if (event === "SIGNED_OUT") {
-        setUser(null);
-        setNeedsOnboarding(false);
-        setAuthUserId(null);
+    // Check existing session on mount
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        loadProfile(session.user.id);
+      } else {
+        setLoading(false);
       }
     });
+
+    // Listen for sign-in / sign-out events
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        if (event === "SIGNED_IN" && session?.user) {
+          loadProfile(session.user.id);
+        } else if (event === "SIGNED_OUT") {
+          setUser(null);
+          setNeedsOnboarding(false);
+          setAuthUserId(null);
+          setLoading(false);
+        }
+      }
+    );
 
     return () => subscription.unsubscribe();
   }, []);

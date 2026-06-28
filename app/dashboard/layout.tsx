@@ -7,14 +7,15 @@ import { AppShell } from "@/components/layout/AppShell";
 import { Loader2 } from "lucide-react";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { user, loading, needsOnboarding } = useAuth();
+  const { user, loading, needsOnboarding, authUserId } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
     if (loading) return;
-    if (needsOnboarding) router.replace("/onboarding");
+    if (!authUserId) router.replace("/login");
+    else if (needsOnboarding) router.replace("/onboarding");
     else if (user?.role === "admin") router.replace("/admin/updates");
-  }, [loading, needsOnboarding, user, router]);
+  }, [loading, needsOnboarding, authUserId, user, router]);
 
   if (loading) {
     return (
