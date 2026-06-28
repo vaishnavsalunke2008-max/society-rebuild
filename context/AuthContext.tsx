@@ -31,10 +31,16 @@ const AuthContext = createContext<AuthContextType>({
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<UserProfile | null>(null);
+  const [userState, setUserState] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
   const [authUserId, setAuthUserId] = useState<string | null>(null);
+
+  // Wrapped setUser — always clears needsOnboarding when a real user is set
+  function setUser(u: UserProfile | null) {
+    setUserState(u);
+    if (u !== null) setNeedsOnboarding(false);
+  }
 
   useEffect(() => {
     const supabase = createClient();
@@ -48,31 +54,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .maybeSingle();
 
       if (profile) {
-        setUser(profile as UserProfile);
+        setUserState(profile as UserProfile);
         setNeedsOnboarding(false);
       } else {
-        setUser(null);
+        setUserState(null);
         setNeedsOnboarding(true);
       }
       setLoading(false);
     }
 
-    // Check existing session on mount
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        loadProfile(session.user.id);
-      } else {
-        setLoading(false);
-      }
-    });
-
-    // Listen for sign-in / sign-out events
+    // Use onAuthStateChange with INITIAL_SESSION — more reliable than getSession()
+    // Supabase fires INITIAL_SESSION on mount with the current session or null
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        if (event === "SIGNED_IN" && session?.user) {
-          loadProfile(session.user.id);
+      async (event, session) => {
+        if (event === "INITIAL_SESSION") {
+          if (session?.user) {
+            await loadProfile(session.user.id);
+          } else {
+            setLoading(false);
+          }
+        } else if (event === "SIGNED_IN" && session?.user) {
+          await loadProfile(session.user.id);
         } else if (event === "SIGNED_OUT") {
-          setUser(null);
+          setUserState(null);
           setNeedsOnboarding(false);
           setAuthUserId(null);
           setLoading(false);
@@ -86,13 +90,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   async function signOut() {
     const supabase = createClient();
     await supabase.auth.signOut();
-    setUser(null);
+    setUserState(null);
     setNeedsOnboarding(false);
     setAuthUserId(null);
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, needsOnboarding, authUserId, setUser, signOut }}>
+    <AuthContext.Provider value={{ user: userState, loading, needsOnboarding, authUserId, setUser, signOut }}>
       {children}
     </AuthContext.Provider>
   );
