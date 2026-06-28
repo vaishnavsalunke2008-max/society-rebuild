@@ -13,6 +13,7 @@ import {
 import { useAuth } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { getInitials } from "@/lib/utils";
+import { useRouter } from "next/navigation";
 import type { Lang } from "@/lib/translations";
 
 // ── Navigation config ─────────────────────────────────────────
@@ -185,9 +186,10 @@ function Sidebar({ open, onClose, role }: { open: boolean; onClose: () => void; 
 
 // ── Top Header ────────────────────────────────────────────────
 function TopHeader({ onMenuClick }: { onMenuClick: () => void }) {
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const { t } = useLanguage();
   const [dropOpen, setDropOpen] = useState(false);
+  const router = useRouter();
 
   return (
     <header className="fixed top-0 left-0 right-0 z-30 h-14 flex items-center px-4 backdrop-blur-md border-b border-themed" style={{ background: "var(--surface)" }}>
@@ -226,7 +228,7 @@ function TopHeader({ onMenuClick }: { onMenuClick: () => void }) {
                 <button className="w-full flex items-center gap-3 p-3 text-sm hover:bg-black/5 dark:hover:bg-white/5 transition-colors" style={{ color: "var(--text-muted)" }}>
                   <User size={16} />{t("avatar.profile")}
                 </button>
-                <button className="w-full flex items-center gap-3 p-3 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors">
+                <button onClick={async () => { await signOut(); router.replace("/onboarding"); }} className="w-full flex items-center gap-3 p-3 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors">
                   <LogOut size={16} />{t("avatar.signOut")}
                 </button>
               </motion.div>
