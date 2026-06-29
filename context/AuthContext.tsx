@@ -49,12 +49,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     async function loadProfile(uid: string) {
       if (cancelled) return;
       setAuthUserId(uid);
-      const { data: profile } = await supabase
+      const { data: profile, error } = await supabase
         .from("users")
         .select("*")
         .eq("id", uid)
         .maybeSingle();
+        
       if (cancelled) return;
+      
+      if (error) {
+        console.error("Profile load error:", error);
+        // Do not force onboarding on a network/DB error
+        setLoading(false);
+        return;
+      }
+      
       if (profile) {
         setUserState(profile as UserProfile);
         setNeedsOnboarding(false);
@@ -76,18 +85,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     async function init() {
-      // 1. If OAuth code is in URL, exchange it first
-      const urlCode = new URLSearchParams(window.location.search).get("code");
-      if (urlCode) {
-        window.history.replaceState({}, "", "/");
-        try {
-          const { data, error } = await supabase.auth.exchangeCodeForSession(urlCode);
-          if (!cancelled && !error && data.session) {
-            await loadProfile(data.session.user.id);
-            return;
-          }
-        } catch {}
-      }
+      // Let Supabase handle any OAuth callback automatically in the background.
+      // We just need to check the current session state.
 
       // 2. Normal init via getSession() - much more reliable than relying on INITIAL_SESSION event
       const { data: { session } } = await supabase.auth.getSession();
@@ -122,16 +121,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     );
 
-    const fallback = setTimeout(() => {
-      if (!settled && !cancelled) {
-        console.warn("Auth init timed out");
-        finishWithNoSession();
-      }
-    }, 8000);
-
     return () => {
       cancelled = true;
-      clearTimeout(fallback);
       subscription.unsubscribe();
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
