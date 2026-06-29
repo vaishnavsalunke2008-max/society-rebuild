@@ -6,6 +6,7 @@ import { Megaphone, Plus, X, Loader2, ImageIcon } from "lucide-react";
 import { createClient } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthContext";
 import { timeAgo, uploadImage } from "@/lib/utils";
+import { useLanguage } from "@/context/LanguageContext";
 import toast from "react-hot-toast";
 import Image from "next/image";
 
@@ -29,6 +30,7 @@ const categoryConfig: Record<string, { label: string; cls: string }> = {
 
 export default function AdminNoticesPage() {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [notices, setNotices] = useState<Notice[]>([]);
   const [loading, setLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
@@ -85,8 +87,8 @@ export default function AdminNoticesPage() {
             <Megaphone size={20} className="text-amber-600 dark:text-amber-400" />
           </div>
           <div>
-            <h1 className="text-xl font-bold" style={{ color: "var(--text)" }}>Send Notice</h1>
-            <p className="text-xs" style={{ color: "var(--text-muted)" }}>Publish announcements</p>
+            <h1 className="text-xl font-bold" style={{ color: "var(--text)" }}>{t("admin.notices.title")}</h1>
+            <p className="text-xs" style={{ color: "var(--text-muted)" }}>{t("admin.notices.subtitle")}</p>
           </div>
         </div>
         <button
@@ -94,7 +96,7 @@ export default function AdminNoticesPage() {
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-white text-sm font-semibold"
           style={{ background: "linear-gradient(135deg, #f59e0b, #d97706)" }}
         >
-          <Plus size={16} /> New
+          <Plus size={16} /> {t("admin.notices.new")}
         </button>
       </div>
 
@@ -102,7 +104,7 @@ export default function AdminNoticesPage() {
         {formOpen && (
           <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
             <div className="glass rounded-2xl p-4 space-y-3">
-              <h3 className="font-semibold text-sm" style={{ color: "var(--text)" }}>New Notice</h3>
+              <h3 className="font-semibold text-sm" style={{ color: "var(--text)" }}>{t("admin.notices.new")}</h3>
               {/* Category Pills */}
               <div className="flex flex-wrap gap-2">
                 {CATEGORIES.map((cat) => {
@@ -118,10 +120,10 @@ export default function AdminNoticesPage() {
                   );
                 })}
               </div>
-              <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title"
+              <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t("admin.notices.title2")}
                 className="w-full text-sm rounded-xl p-3 outline-none"
                 style={{ background: "var(--surface-2)", color: "var(--text)", border: "1px solid var(--border)" }} />
-              <textarea value={body} onChange={(e) => setBody(e.target.value)} placeholder="Notice body..." rows={4}
+              <textarea value={body} onChange={(e) => setBody(e.target.value)} placeholder={t("admin.notices.body")} rows={4}
                 className="w-full text-sm rounded-xl p-3 resize-none outline-none"
                 style={{ background: "var(--surface-2)", color: "var(--text)", border: "1px solid var(--border)" }} />
               {imagePreview && (
@@ -135,7 +137,7 @@ export default function AdminNoticesPage() {
               )}
               <div className="flex items-center justify-between">
                 <button onClick={() => fileRef.current?.click()} className="flex items-center gap-2 text-sm" style={{ color: "var(--text-muted)" }}>
-                  <ImageIcon size={16} /> Image
+                  <ImageIcon size={16} /> {t("admin.notices.image")}
                 </button>
                 <input ref={fileRef} type="file" accept="image/*" className="hidden"
                   onChange={(e) => { const f = e.target.files?.[0]; if (f) { setImageFile(f); setImagePreview(URL.createObjectURL(f)); } }} />
@@ -143,7 +145,7 @@ export default function AdminNoticesPage() {
                   className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-semibold disabled:opacity-50"
                   style={{ background: "linear-gradient(135deg, #f59e0b, #d97706)" }}>
                   {submitting ? <Loader2 size={16} className="animate-spin" /> : <Megaphone size={16} />}
-                  Publish
+                  {t("admin.notices.publish")}
                 </button>
               </div>
             </div>
@@ -156,8 +158,8 @@ export default function AdminNoticesPage() {
       {!loading && notices.length === 0 && (
         <div className="flex flex-col items-center py-16 gap-3">
           <div className="w-16 h-16 rounded-2xl flex items-center justify-center" style={{ background: "var(--surface-2)" }}><Megaphone size={28} style={{ color: "var(--text-muted)" }} /></div>
-          <p className="font-semibold" style={{ color: "var(--text)" }}>No notices published</p>
-          <p className="text-sm" style={{ color: "var(--text-muted)" }}>Tap "+ New" to create a notice</p>
+          <p className="font-semibold" style={{ color: "var(--text)" }}>{t("admin.notices.empty")}</p>
+          <p className="text-sm" style={{ color: "var(--text-muted)" }}>{t("admin.notices.emptySub")}</p>
         </div>
       )}
 

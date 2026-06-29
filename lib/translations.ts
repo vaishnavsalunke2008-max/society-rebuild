@@ -114,7 +114,7 @@ export const translations: TranslationMap = {
   "sidebar.language":     { en: "Language",       hi: "भाषा",          mr: "भाषा",          te: "భాష",           ta: "மொழி" },
   "sidebar.feedback":     { en: "Send Feedback",  hi: "फीडबैक भेजें", mr: "अभिप्राय पाठवा", te: "అభిప్రాయం పంపు", ta: "கருத்து அனுப்பு" },
   "sidebar.signedAs":     { en: "Signed in as",   hi: "के रूप में लॉग इन", mr: "म्हणून साइन इन", te: "గా సైన్ ఇన్ అయ్యారు", ta: "என்று உள்நுழைந்தீர்கள்" },
-  "sidebar.switchRole":   { en: "Switch role in AuthContext.tsx", hi: "भूमिका बदलें", mr: "भूमिका बदला", te: "పాత్ర మార్చండి", ta: "பாத்திரத்தை மாற்றவும்" },
+  "sidebar.switchRole":   { en: "Contact admin to change role", hi: "भूमिका बदलने के लिए एडमिन से संपर्क करें", mr: "भूमिका बदलण्यासाठी अॅडमिनशी संपर्क करा", te: "పాత్ర మార్చడానికి అడ్మిన్‌ని సంప్రదించండి", ta: "பாத்திரத்தை மாற்ற நிர்வாகியை தொடர்பு கொள்ளுங்கள்" },
 
   // ── Avatar Dropdown ───────────────────────────────────────
   "avatar.profile":  { en: "Profile",   hi: "प्रोफ़ाइल", mr: "प्रोफाइल", te: "ప్రొఫైల్", ta: "சுயவிவரம்" },
