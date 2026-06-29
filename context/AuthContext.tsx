@@ -44,6 +44,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const supabase = createClient();
     let cancelled = false;
+    // Tracks whether we've already settled auth so SIGNED_OUT
+    // from stale token refresh doesn't kick out a freshly logged-in user
+    let settled = false;
 
     async function loadProfile(uid: string) {
       if (cancelled) return;
@@ -62,72 +65,67 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setNeedsOnboarding(true);
       }
       setLoading(false);
+      settled = true;
     }
 
     function finishWithNoSession() {
-      if (cancelled) return;
+      if (cancelled || settled) return; // never clear a live session
       setUserState(null);
       setNeedsOnboarding(false);
       setAuthUserId(null);
       setLoading(false);
+      settled = true;
     }
 
-    async function init() {
-      // 1. Check for OAuth code in the URL (PKCE callback lands here)
-      const url = new URL(window.location.href);
-      const code = url.searchParams.get("code");
-      if (code) {
-        // Clean the URL immediately so it doesn't get re-processed
-        window.history.replaceState({}, "", "/");
-        try {
-          const { data, error } = await supabase.auth.exchangeCodeForSession(code);
-          if (!cancelled && !error && data.session) {
-            await loadProfile(data.session.user.id);
-          } else {
-            await fallbackGetSession();
-          }
-        } catch {
-          await fallbackGetSession();
-        }
-        return;
-      }
-
-      // 2. Normal session check
-      await fallbackGetSession();
+    // ── Step 1: If there's a ?code= in the URL this is an OAuth return.
+    //    Exchange it and let SIGNED_IN event do the rest.
+    const urlCode = new URLSearchParams(window.location.search).get("code");
+    if (urlCode) {
+      window.history.replaceState({}, "", "/");
+      supabase.auth.exchangeCodeForSession(urlCode).catch(() => {
+        // exchange failed — fall through to INITIAL_SESSION handler below
+      });
     }
 
-    async function fallbackGetSession() {
-      if (cancelled) return;
-      const { data: { session } } = await supabase.auth.getSession();
-      if (cancelled) return;
-      if (session?.user) {
-        await loadProfile(session.user.id);
-      } else {
-        finishWithNoSession();
-      }
-    }
-
-    // Live auth events after init (sign-in / sign-out)
+    // ── Step 2: onAuthStateChange is the single source of truth
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (cancelled) return;
-        if (event === "SIGNED_IN" && session?.user) {
+
+        if (event === "INITIAL_SESSION") {
+          if (session?.user) {
+            await loadProfile(session.user.id);
+          } else if (!urlCode) {
+            // No code being exchanged → truly logged out
+            finishWithNoSession();
+          }
+          // If urlCode present, wait for SIGNED_IN from the exchange
+        } else if (event === "SIGNED_IN" && session?.user) {
           await loadProfile(session.user.id);
         } else if (event === "SIGNED_OUT") {
-          finishWithNoSession();
+          // Only honour SIGNED_OUT if we triggered it ourselves (via signOut())
+          // spontaneous SIGNED_OUT (e.g. from token refresh race) is ignored
+          // if user is already settled
+          if (!settled) finishWithNoSession();
+          else {
+            // Check if this is real: re-fetch session
+            const { data } = await supabase.auth.getSession();
+            if (!data.session) {
+              settled = false;
+              finishWithNoSession();
+            }
+          }
         }
       }
     );
 
-    // Hard fallback — never stuck more than 6 seconds
+    // ── Step 3: Hard timeout fallback
     const fallback = setTimeout(() => {
-      if (!cancelled) {
+      if (!settled && !cancelled) {
         console.warn("Auth init timed out");
         finishWithNoSession();
       }
-    }, 6000);
-
-    init();
+    }, 8000);
 
     return () => {
       cancelled = true;
@@ -143,6 +141,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUserState(null);
     setNeedsOnboarding(false);
     setAuthUserId(null);
+    setLoading(false);
   }
 
   return (
