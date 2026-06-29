@@ -16,7 +16,8 @@ type Message = {
   created_at: string;
 };
 
-export default function AdminMessageDetailPage({ params }: { params: { id: string } }) {
+export default function AdminMessageDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const resolvedParams = React.use(params);
   const { user } = useAuth();
   const router = useRouter();
   const [messages, setMessages] = useState<Message[]>([]);
@@ -33,14 +34,14 @@ export default function AdminMessageDetailPage({ params }: { params: { id: strin
       const { data: conv } = await supabase
         .from("conversations")
         .select("subject, resident_id")
-        .eq("id", params.id)
+        .eq("id", resolvedParams.id)
         .single();
       if (conv) { setSubject(conv.subject); }
 
       const { data, error: selectError } = await supabase
         .from("messages")
         .select("*")
-        .eq("conversation_id", params.id)
+        .eq("conversation_id", resolvedParams.id)
         .order("created_at", { ascending: true });
         
       if (selectError) {
@@ -52,12 +53,12 @@ export default function AdminMessageDetailPage({ params }: { params: { id: strin
       setLoading(false);
 
       // Mark as read
-      await supabase.from("conversations").update({ unread_admin: 0 }).eq("id", params.id);
+      await supabase.from("conversations").update({ unread_admin: 0 }).eq("id", resolvedParams.id);
     }
     load();
 
     const channel = supabase
-      .channel(`chat-${params.id}`)
+      .channel(`chat-${resolvedParams.id}`)
       .on("broadcast", { event: "new-message" }, (payload) => {
         setMessages((prev) => {
           if (prev.find((m) => m.id === payload.payload.id)) return prev;
@@ -66,7 +67,7 @@ export default function AdminMessageDetailPage({ params }: { params: { id: strin
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [params.id]);
+  }, [resolvedParams.id]);
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
 
@@ -89,7 +90,7 @@ export default function AdminMessageDetailPage({ params }: { params: { id: strin
       // Insert to DB
       const { error: insertError } = await supabase.from("messages").insert({
         id: msgId,
-        conversation_id: params.id,
+        conversation_id: resolvedParams.id,
         sender_id: user.id,
         content: msg.content,
         created_at: msg.created_at,
@@ -101,7 +102,7 @@ export default function AdminMessageDetailPage({ params }: { params: { id: strin
       }
 
       // Broadcast to other participant
-      await supabase.channel(`chat-${params.id}`).send({
+      await supabase.channel(`chat-${resolvedParams.id}`).send({
         type: "broadcast",
         event: "new-message",
         payload: msg,
@@ -111,7 +112,7 @@ export default function AdminMessageDetailPage({ params }: { params: { id: strin
         last_message: msg.content,
         last_message_at: msg.created_at,
         unread_resident: 1,
-      }).eq("id", params.id);
+      }).eq("id", resolvedParams.id);
       setNewMsg("");
     } catch { toast.error("Failed to send message"); }
     setSending(false);
