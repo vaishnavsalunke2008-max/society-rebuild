@@ -92,6 +92,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     async function init() {
       try {
         const { data: { session }, error } = await supabase.auth.getSession();
+        
+        // Clear OAuth code from URL so refreshing the page doesn't re-trigger a used code (which logs the user out)
+        if (typeof window !== "undefined" && window.location.search.includes("code=")) {
+          window.history.replaceState({}, "", window.location.pathname);
+        }
+
         if (cancelled) return;
         if (error) {
           console.error("Session error:", error);
