@@ -48,31 +48,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     async function loadProfile(uid: string) {
       if (cancelled) return;
-      setAuthUserId(uid);
-      const { data: profile, error } = await supabase
-        .from("users")
-        .select("*")
-        .eq("id", uid)
-        .maybeSingle();
+      try {
+        setAuthUserId(uid);
+        const { data: profile, error } = await supabase
+          .from("users")
+          .select("*")
+          .eq("id", uid)
+          .maybeSingle();
+          
+        if (cancelled) return;
         
-      if (cancelled) return;
-      
-      if (error) {
-        console.error("Profile load error:", error);
-        // Do not force onboarding on a network/DB error
+        if (error) {
+          console.error("Profile load error:", error);
+          setLoading(false);
+          settled = true;
+          return;
+        }
+        
+        if (profile) {
+          setUserState(profile as UserProfile);
+          setNeedsOnboarding(false);
+        } else {
+          setUserState(null);
+          setNeedsOnboarding(true);
+        }
+      } catch (err) {
+        console.error("Profile exception:", err);
+      } finally {
         setLoading(false);
-        return;
+        settled = true;
       }
-      
-      if (profile) {
-        setUserState(profile as UserProfile);
-        setNeedsOnboarding(false);
-      } else {
-        setUserState(null);
-        setNeedsOnboarding(true);
-      }
-      setLoading(false);
-      settled = true;
     }
 
     function finishWithNoSession() {
@@ -85,15 +90,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     async function init() {
-      // Let Supabase handle any OAuth callback automatically in the background.
-      // We just need to check the current session state.
-
-      // 2. Normal init via getSession() - much more reliable than relying on INITIAL_SESSION event
-      const { data: { session } } = await supabase.auth.getSession();
-      if (cancelled) return;
-      if (session?.user) {
-        await loadProfile(session.user.id);
-      } else {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (cancelled) return;
+        if (error) {
+          console.error("Session error:", error);
+          finishWithNoSession();
+          return;
+        }
+        if (session?.user) {
+          await loadProfile(session.user.id);
+        } else {
+          finishWithNoSession();
+        }
+      } catch (err) {
+        console.error("Init exception:", err);
         finishWithNoSession();
       }
     }
@@ -121,8 +132,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     );
 
+    const fallback = setTimeout(() => {
+      if (!settled && !cancelled) {
+        console.warn("Auth init timed out after 15s");
+        finishWithNoSession();
+      }
+    }, 15000);
+
     return () => {
       cancelled = true;
+      clearTimeout(fallback);
       subscription.unsubscribe();
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
