@@ -36,11 +36,17 @@ export default function ChatDetailPage({ params }: { params: { id: string } }) {
         .single();
       if (conv) setSubject(conv.subject);
 
-      const { data } = await supabase
+      const { data, error: selectError } = await supabase
         .from("messages")
         .select("*")
         .eq("conversation_id", params.id)
         .order("created_at", { ascending: true });
+        
+      if (selectError) {
+        console.error("Select error:", selectError);
+        toast.error(`DB Read Error: ${selectError.message}`);
+      }
+      
       setMessages((data as Message[]) || []);
       setLoading(false);
     }
@@ -80,13 +86,18 @@ export default function ChatDetailPage({ params }: { params: { id: string } }) {
       setNewMsg("");
 
       // Insert to DB
-      await supabase.from("messages").insert({
+      const { error: insertError } = await supabase.from("messages").insert({
         id: msgId,
         conversation_id: params.id,
         sender_id: user.id,
         content: msg.content,
         created_at: msg.created_at,
       });
+      if (insertError) {
+        console.error("Insert error:", insertError);
+        toast.error(`DB Error: ${insertError.message}`);
+        return;
+      }
 
       // Broadcast to other participant
       await supabase.channel(`chat-${params.id}`).send({
