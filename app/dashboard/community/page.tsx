@@ -47,7 +47,7 @@ export default function CommunityPage() {
   async function loadPosts() {
     const { data, error } = await supabase
       .from("posts")
-      .select("*, users(full_name, flat_number)")
+      .select("*, users!author_id(full_name, flat_number)")
       .order("created_at", { ascending: false });
 
     if (error) {
