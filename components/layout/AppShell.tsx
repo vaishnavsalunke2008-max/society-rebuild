@@ -15,6 +15,7 @@ import { useLanguage } from "@/context/LanguageContext";
 import { getInitials } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import type { Lang } from "@/lib/translations";
+import { PushToggle } from "@/components/PushToggle";
 
 // ── Navigation config ─────────────────────────────────────────
 const residentTabKeys = [
@@ -150,6 +151,9 @@ function Sidebar({ open, onClose, role }: { open: boolean; onClose: () => void; 
                 </AnimatePresence>
               </div>
 
+              {/* Push Notifications */}
+              <PushToggle />
+
               {/* Send Feedback */}
               <button className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 transition-colors" style={{ background: "var(--surface-2)" }}>
                 <Send size={18} style={{ color: "var(--primary)" }} />
@@ -225,7 +229,7 @@ function TopHeader({ onMenuClick }: { onMenuClick: () => void }) {
                     {t(`common.${user?.role || "resident"}`)}
                   </span>
                 </div>
-                <button className="w-full flex items-center gap-3 p-3 text-sm hover:bg-black/5 dark:hover:bg-white/5 transition-colors" style={{ color: "var(--text-muted)" }}>
+                <button onClick={() => { setDropOpen(false); router.push("/profile"); }} className="w-full flex items-center gap-3 p-3 text-sm hover:bg-black/5 dark:hover:bg-white/5 transition-colors" style={{ color: "var(--text-muted)" }}>
                   <User size={16} />{t("avatar.profile")}
                 </button>
                 <button onClick={async () => { await signOut(); router.replace("/onboarding"); }} className="w-full flex items-center gap-3 p-3 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors">

@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { AlertCircle, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase";
 import { statusColor, timeAgo } from "@/lib/utils";
+import { useLanguage } from "@/context/LanguageContext";
 import toast from "react-hot-toast";
 import Image from "next/image";
 
@@ -26,6 +27,7 @@ export default function AdminUpdatesPage() {
   const [complaints, setComplaints] = useState<Complaint[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<Filter>("all");
+  const { t } = useLanguage();
   const supabase = createClient();
 
   async function loadComplaints() {
@@ -61,8 +63,8 @@ export default function AdminUpdatesPage() {
           <AlertCircle size={20} className="text-red-600 dark:text-red-400" />
         </div>
         <div>
-          <h1 className="text-xl font-bold" style={{ color: "var(--text)" }}>Complaint Management</h1>
-          <p className="text-xs" style={{ color: "var(--text-muted)" }}>Review and resolve issues</p>
+          <h1 className="text-xl font-bold" style={{ color: "var(--text)" }}>{t("admin.complaints.title")}</h1>
+          <p className="text-xs" style={{ color: "var(--text-muted)" }}>{t("admin.complaints.subtitle")}</p>
         </div>
       </div>
 
@@ -96,7 +98,7 @@ export default function AdminUpdatesPage() {
             }`}
             style={filter !== f ? { border: "1px solid var(--border)" } : {}}
           >
-            {f === "all" ? "All" : f === "in_progress" ? "In Progress" : f.charAt(0).toUpperCase() + f.slice(1)}
+            {f === "all" ? t("admin.complaints.filter.all") : f === "in_progress" ? t("admin.complaints.filter.in_progress") : t(`admin.complaints.filter.${f}`)}
           </button>
         ))}
       </div>
@@ -145,7 +147,7 @@ export default function AdminUpdatesPage() {
               <p className="text-sm line-clamp-2 mb-3" style={{ color: "var(--text-muted)" }}>{c.description}</p>
               <div className="flex items-center gap-2 flex-wrap">
                 <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold border ${sc.text} ${sc.bg} ${sc.border}`}>
-                  {c.status === "in_progress" ? "In Progress" : c.status.charAt(0).toUpperCase() + c.status.slice(1)}
+                  {c.status === "in_progress" ? t("admin.complaints.filter.in_progress") : t(`complaints.status.${c.status}`)}
                 </span>
                 {c.status === "pending" && (
                   <button

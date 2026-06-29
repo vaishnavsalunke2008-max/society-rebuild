@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { MessageCircle, ChevronRight, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase";
 import { getInitials, timeAgo } from "@/lib/utils";
+import { useLanguage } from "@/context/LanguageContext";
 import { useRouter } from "next/navigation";
 
 type Conversation = {
@@ -20,6 +21,7 @@ type Conversation = {
 export default function AdminMessagesPage() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
+  const { t } = useLanguage();
   const router = useRouter();
   const supabase = createClient();
 
@@ -43,9 +45,9 @@ export default function AdminMessagesPage() {
           <MessageCircle size={20} style={{ color: "var(--primary)" }} />
         </div>
         <div>
-          <h1 className="text-xl font-bold" style={{ color: "var(--text)" }}>Messages</h1>
+          <h1 className="text-xl font-bold" style={{ color: "var(--text)" }}>{t("admin.messages.title")}</h1>
           <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-            {totalUnread > 0 ? `${totalUnread} unread` : "Resident conversations"}
+            {totalUnread > 0 ? `${totalUnread} ${t("admin.messages.unread")}` : t("admin.messages.subtitle")}
           </p>
         </div>
         {totalUnread > 0 && (
@@ -62,8 +64,8 @@ export default function AdminMessagesPage() {
           <div className="w-16 h-16 rounded-2xl flex items-center justify-center" style={{ background: "var(--surface-2)" }}>
             <MessageCircle size={28} style={{ color: "var(--text-muted)" }} />
           </div>
-          <p className="font-semibold" style={{ color: "var(--text)" }}>No messages</p>
-          <p className="text-sm" style={{ color: "var(--text-muted)" }}>Resident messages will appear here</p>
+          <p className="font-semibold" style={{ color: "var(--text)" }}>{t("admin.messages.empty")}</p>
+          <p className="text-sm" style={{ color: "var(--text-muted)" }}>{t("admin.messages.emptySub")}</p>
         </div>
       )}
 

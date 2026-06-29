@@ -6,6 +6,7 @@ import { CalendarDays, Plus, MapPin, Trash2, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthContext";
 import { formatDate, formatTime } from "@/lib/utils";
+import { useLanguage } from "@/context/LanguageContext";
 import toast from "react-hot-toast";
 
 type Event = {
@@ -19,6 +20,7 @@ type Event = {
 
 export default function AdminEventsPage() {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
@@ -70,14 +72,14 @@ export default function AdminEventsPage() {
             <CalendarDays size={20} className="text-emerald-600 dark:text-emerald-400" />
           </div>
           <div>
-            <h1 className="text-xl font-bold" style={{ color: "var(--text)" }}>Manage Events</h1>
-            <p className="text-xs" style={{ color: "var(--text-muted)" }}>Create & organize events</p>
+            <h1 className="text-xl font-bold" style={{ color: "var(--text)" }}>{t("admin.events.title")}</h1>
+            <p className="text-xs" style={{ color: "var(--text-muted)" }}>{t("admin.events.subtitle")}</p>
           </div>
         </div>
         <button onClick={() => setFormOpen(!formOpen)}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-white text-sm font-semibold"
           style={{ background: "linear-gradient(135deg, #10b981, #059669)" }}>
-          <Plus size={16} /> Add
+          <Plus size={16} /> {t("admin.events.add")}
         </button>
       </div>
 
@@ -85,14 +87,14 @@ export default function AdminEventsPage() {
         {formOpen && (
           <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
             <div className="glass rounded-2xl p-4 space-y-3">
-              <h3 className="font-semibold text-sm" style={{ color: "var(--text)" }}>New Event</h3>
-              <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Event name"
+              <h3 className="font-semibold text-sm" style={{ color: "var(--text)" }}>{t("admin.events.create")}</h3>
+              <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t("admin.events.name")}
                 className="w-full text-sm rounded-xl p-3 outline-none"
                 style={{ background: "var(--surface-2)", color: "var(--text)", border: "1px solid var(--border)" }} />
-              <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Description (optional)" rows={2}
+              <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder={t("admin.events.desc")} rows={2}
                 className="w-full text-sm rounded-xl p-3 resize-none outline-none"
                 style={{ background: "var(--surface-2)", color: "var(--text)", border: "1px solid var(--border)" }} />
-              <input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Location (optional)"
+              <input value={location} onChange={(e) => setLocation(e.target.value)} placeholder={t("admin.events.location")}
                 className="w-full text-sm rounded-xl p-3 outline-none"
                 style={{ background: "var(--surface-2)", color: "var(--text)", border: "1px solid var(--border)" }} />
               <input value={eventDate} onChange={(e) => setEventDate(e.target.value)} type="datetime-local"
@@ -102,7 +104,7 @@ export default function AdminEventsPage() {
                 className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-white text-sm font-semibold disabled:opacity-50"
                 style={{ background: "linear-gradient(135deg, #10b981, #059669)" }}>
                 {submitting ? <Loader2 size={16} className="animate-spin" /> : <CalendarDays size={16} />}
-                Create Event
+                {t("admin.events.create")}
               </button>
             </div>
           </motion.div>
@@ -114,8 +116,8 @@ export default function AdminEventsPage() {
       {!loading && events.length === 0 && (
         <div className="flex flex-col items-center py-16 gap-3">
           <div className="w-16 h-16 rounded-2xl flex items-center justify-center" style={{ background: "var(--surface-2)" }}><CalendarDays size={28} style={{ color: "var(--text-muted)" }} /></div>
-          <p className="font-semibold" style={{ color: "var(--text)" }}>No events created</p>
-          <p className="text-sm" style={{ color: "var(--text-muted)" }}>Tap "+ Add" to create an event</p>
+          <p className="font-semibold" style={{ color: "var(--text)" }}>{t("admin.events.empty")}</p>
+          <p className="text-sm" style={{ color: "var(--text-muted)" }}>{t("admin.events.emptySub")}</p>
         </div>
       )}
 
@@ -138,7 +140,7 @@ export default function AdminEventsPage() {
                   <div className="flex items-center gap-2 mb-0.5">
                     <h3 className="font-semibold text-sm" style={{ color: "var(--text)" }}>{event.title}</h3>
                     <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${past ? "bg-slate-100 dark:bg-white/10 text-slate-500" : "bg-emerald-100 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"}`}>
-                      {past ? "Past" : "Upcoming"}
+                      {past ? t("events.past") : t("events.upcoming")}
                     </span>
                   </div>
                   {event.description && <p className="text-xs mb-1 line-clamp-1" style={{ color: "var(--text-muted)" }}>{event.description}</p>}
