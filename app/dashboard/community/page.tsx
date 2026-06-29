@@ -45,10 +45,15 @@ export default function CommunityPage() {
   const supabase = createClient();
 
   async function loadPosts() {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("posts")
       .select("*, users(full_name, flat_number)")
       .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Posts fetch error:", error);
+      toast.error("DB Error: " + error.message);
+    }
 
     // Check liked status
     if (data && user) {
