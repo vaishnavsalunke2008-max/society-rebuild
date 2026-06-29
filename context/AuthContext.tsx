@@ -44,8 +44,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const supabase = createClient();
     let cancelled = false;
-    // Tracks whether we've already settled auth so SIGNED_OUT
-    // from stale token refresh doesn't kick out a freshly logged-in user
     let settled = false;
 
     async function loadProfile(uid: string) {
@@ -69,7 +67,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     function finishWithNoSession() {
-      if (cancelled || settled) return; // never clear a live session
+      if (cancelled || settled) return;
       setUserState(null);
       setNeedsOnboarding(false);
       setAuthUserId(null);
@@ -77,38 +75,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       settled = true;
     }
 
-    // ── Step 1: If there's a ?code= in the URL this is an OAuth return.
-    //    Exchange it and let SIGNED_IN event do the rest.
-    const urlCode = new URLSearchParams(window.location.search).get("code");
-    if (urlCode) {
-      window.history.replaceState({}, "", "/");
-      supabase.auth.exchangeCodeForSession(urlCode).catch(() => {
-        // exchange failed — fall through to INITIAL_SESSION handler below
-      });
+    async function init() {
+      // 1. If OAuth code is in URL, exchange it first
+      const urlCode = new URLSearchParams(window.location.search).get("code");
+      if (urlCode) {
+        window.history.replaceState({}, "", "/");
+        try {
+          const { data, error } = await supabase.auth.exchangeCodeForSession(urlCode);
+          if (!cancelled && !error && data.session) {
+            await loadProfile(data.session.user.id);
+            return;
+          }
+        } catch {}
+      }
+
+      // 2. Normal init via getSession() - much more reliable than relying on INITIAL_SESSION event
+      const { data: { session } } = await supabase.auth.getSession();
+      if (cancelled) return;
+      if (session?.user) {
+        await loadProfile(session.user.id);
+      } else {
+        finishWithNoSession();
+      }
     }
 
-    // ── Step 2: onAuthStateChange is the single source of truth
+    init();
+
+    // 3. Listen for live events (like user clicking sign out)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (cancelled) return;
 
-        if (event === "INITIAL_SESSION") {
-          if (session?.user) {
-            await loadProfile(session.user.id);
-          } else if (!urlCode) {
-            // No code being exchanged → truly logged out
-            finishWithNoSession();
-          }
-          // If urlCode present, wait for SIGNED_IN from the exchange
-        } else if (event === "SIGNED_IN" && session?.user) {
+        if (event === "SIGNED_IN" && session?.user) {
           await loadProfile(session.user.id);
         } else if (event === "SIGNED_OUT") {
-          // Only honour SIGNED_OUT if we triggered it ourselves (via signOut())
-          // spontaneous SIGNED_OUT (e.g. from token refresh race) is ignored
-          // if user is already settled
+          // Double check before kicking out (avoids token refresh bugs kicking user out)
           if (!settled) finishWithNoSession();
           else {
-            // Check if this is real: re-fetch session
             const { data } = await supabase.auth.getSession();
             if (!data.session) {
               settled = false;
@@ -119,7 +122,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     );
 
-    // ── Step 3: Hard timeout fallback
     const fallback = setTimeout(() => {
       if (!settled && !cancelled) {
         console.warn("Auth init timed out");
