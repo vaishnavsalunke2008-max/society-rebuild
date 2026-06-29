@@ -30,7 +30,7 @@ const ROLES = [
     label: "Admin / Secretary",
     emoji: "👔",
     desc: "I manage the society",
-    flatRequired: true,
+    flatRequired: false,
   },
 ];
 
