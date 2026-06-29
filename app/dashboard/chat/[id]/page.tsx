@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, use } from "react";
 import { motion } from "framer-motion";
 import { ArrowLeft, Send, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase";
@@ -17,7 +17,7 @@ type Message = {
 };
 
 export default function ChatDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const resolvedParams = React.use(params);
+  const resolvedParams = use(params);
   const { user } = useAuth();
   const router = useRouter();
   const [messages, setMessages] = useState<Message[]>([]);
