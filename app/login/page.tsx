@@ -20,7 +20,7 @@ function LoginContent() {
         redirectTo: `${window.location.origin}/`,
         queryParams: {
           access_type: "offline",
-          prompt: "select_account",
+          prompt: "consent",
         },
       },
     });
