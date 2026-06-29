@@ -35,9 +35,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
   const [authUserId, setAuthUserId] = useState<string | null>(null);
-  const [initialized, setInitialized] = useState(false);
 
-  // Wrapped setUser — always clears needsOnboarding when a real user is set
   function setUser(u: UserProfile | null) {
     setUserState(u);
     if (u !== null) setNeedsOnboarding(false);
@@ -55,7 +53,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .select("*")
         .eq("id", uid)
         .maybeSingle();
-
       if (cancelled) return;
       if (profile) {
         setUserState(profile as UserProfile);
@@ -65,7 +62,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setNeedsOnboarding(true);
       }
       setLoading(false);
-      setInitialized(true);
     }
 
     function finishWithNoSession() {
@@ -74,20 +70,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setNeedsOnboarding(false);
       setAuthUserId(null);
       setLoading(false);
-      setInitialized(true);
     }
 
-    // Primary: getSession() — immediate, reliable across all Next.js versions
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (initialized || cancelled) return;
+    async function init() {
+      // 1. Check for OAuth code in the URL (PKCE callback lands here)
+      const url = new URL(window.location.href);
+      const code = url.searchParams.get("code");
+      if (code) {
+        // Clean the URL immediately so it doesn't get re-processed
+        window.history.replaceState({}, "", "/");
+        try {
+          const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+          if (!cancelled && !error && data.session) {
+            await loadProfile(data.session.user.id);
+          } else {
+            await fallbackGetSession();
+          }
+        } catch {
+          await fallbackGetSession();
+        }
+        return;
+      }
+
+      // 2. Normal session check
+      await fallbackGetSession();
+    }
+
+    async function fallbackGetSession() {
+      if (cancelled) return;
+      const { data: { session } } = await supabase.auth.getSession();
+      if (cancelled) return;
       if (session?.user) {
-        loadProfile(session.user.id);
+        await loadProfile(session.user.id);
       } else {
         finishWithNoSession();
       }
-    });
+    }
 
-    // Secondary: onAuthStateChange handles sign-in/out events after init
+    // Live auth events after init (sign-in / sign-out)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (cancelled) return;
@@ -99,13 +119,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     );
 
-    // Hard fallback — if nothing resolves in 4s, stop the spinner
+    // Hard fallback — never stuck more than 6 seconds
     const fallback = setTimeout(() => {
-      if (!initialized && !cancelled) {
-        console.warn("Auth init timed out — defaulting to logged-out state");
+      if (!cancelled) {
+        console.warn("Auth init timed out");
         finishWithNoSession();
       }
-    }, 4000);
+    }, 6000);
+
+    init();
 
     return () => {
       cancelled = true;
