@@ -1,0 +1,21 @@
+{
+  "/_global-error/page": "/_global-error",
+  "/_not-found/page": "/_not-found",
+  "/admin/community/page": "/admin/community",
+  "/admin/events/page": "/admin/events",
+  "/admin/messages/[id]/page": "/admin/messages/[id]",
+  "/admin/messages/page": "/admin/messages",
+  "/admin/notices/page": "/admin/notices",
+  "/admin/updates/page": "/admin/updates",
+  "/auth/callback/route": "/auth/callback",
+  "/dashboard/chat/[id]/page": "/dashboard/chat/[id]",
+  "/dashboard/chat/page": "/dashboard/chat",
+  "/dashboard/community/page": "/dashboard/community",
+  "/dashboard/complaints/page": "/dashboard/complaints",
+  "/dashboard/events/page": "/dashboard/events",
+  "/dashboard/updates/page": "/dashboard/updates",
+  "/login/page": "/login",
+  "/onboarding/page": "/onboarding",
+  "/page": "/",
+  "/profile/page": "/profile"
+}
