@@ -35,6 +35,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
   const [authUserId, setAuthUserId] = useState<string | null>(null);
+  const [initialized, setInitialized] = useState(false);
 
   // Wrapped setUser — always clears needsOnboarding when a real user is set
   function setUser(u: UserProfile | null) {
@@ -44,8 +45,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const supabase = createClient();
+    let cancelled = false;
 
     async function loadProfile(uid: string) {
+      if (cancelled) return;
       setAuthUserId(uid);
       const { data: profile } = await supabase
         .from("users")
@@ -53,6 +56,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .eq("id", uid)
         .maybeSingle();
 
+      if (cancelled) return;
       if (profile) {
         setUserState(profile as UserProfile);
         setNeedsOnboarding(false);
@@ -61,30 +65,54 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setNeedsOnboarding(true);
       }
       setLoading(false);
+      setInitialized(true);
     }
 
-    // Use onAuthStateChange with INITIAL_SESSION — more reliable than getSession()
-    // Supabase fires INITIAL_SESSION on mount with the current session or null
+    function finishWithNoSession() {
+      if (cancelled) return;
+      setUserState(null);
+      setNeedsOnboarding(false);
+      setAuthUserId(null);
+      setLoading(false);
+      setInitialized(true);
+    }
+
+    // Primary: getSession() — immediate, reliable across all Next.js versions
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (initialized || cancelled) return;
+      if (session?.user) {
+        loadProfile(session.user.id);
+      } else {
+        finishWithNoSession();
+      }
+    });
+
+    // Secondary: onAuthStateChange handles sign-in/out events after init
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        if (event === "INITIAL_SESSION") {
-          if (session?.user) {
-            await loadProfile(session.user.id);
-          } else {
-            setLoading(false);
-          }
-        } else if (event === "SIGNED_IN" && session?.user) {
+        if (cancelled) return;
+        if (event === "SIGNED_IN" && session?.user) {
           await loadProfile(session.user.id);
         } else if (event === "SIGNED_OUT") {
-          setUserState(null);
-          setNeedsOnboarding(false);
-          setAuthUserId(null);
-          setLoading(false);
+          finishWithNoSession();
         }
       }
     );
 
-    return () => subscription.unsubscribe();
+    // Hard fallback — if nothing resolves in 4s, stop the spinner
+    const fallback = setTimeout(() => {
+      if (!initialized && !cancelled) {
+        console.warn("Auth init timed out — defaulting to logged-out state");
+        finishWithNoSession();
+      }
+    }, 4000);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(fallback);
+      subscription.unsubscribe();
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function signOut() {
