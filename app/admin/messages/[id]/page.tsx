@@ -51,9 +51,12 @@ export default function AdminMessageDetailPage({ params }: { params: { id: strin
     load();
 
     const channel = supabase
-      .channel(`admin-messages-${params.id}`)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `conversation_id=eq.${params.id}` }, (payload) => {
-        setMessages((prev) => [...prev, payload.new as Message]);
+      .channel(`chat-${params.id}`)
+      .on("broadcast", { event: "new-message" }, (payload) => {
+        setMessages((prev) => {
+          if (prev.find((m) => m.id === payload.payload.id)) return prev;
+          return [...prev, payload.payload as Message];
+        });
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
@@ -65,14 +68,37 @@ export default function AdminMessageDetailPage({ params }: { params: { id: strin
     if (!newMsg.trim() || !user) return;
     setSending(true);
     try {
-      await supabase.from("messages").insert({
-        conversation_id: params.id,
+      const msgId = crypto.randomUUID();
+      const msg: Message = {
+        id: msgId,
         sender_id: user.id,
         content: newMsg.trim(),
+        created_at: new Date().toISOString(),
+      };
+
+      // Optimistically add to UI
+      setMessages((prev) => [...prev, msg]);
+      setNewMsg("");
+
+      // Insert to DB
+      await supabase.from("messages").insert({
+        id: msgId,
+        conversation_id: params.id,
+        sender_id: user.id,
+        content: msg.content,
+        created_at: msg.created_at,
       });
+
+      // Broadcast to other participant
+      await supabase.channel(`chat-${params.id}`).send({
+        type: "broadcast",
+        event: "new-message",
+        payload: msg,
+      });
+
       await supabase.from("conversations").update({
-        last_message: newMsg.trim(),
-        last_message_at: new Date().toISOString(),
+        last_message: msg.content,
+        last_message_at: msg.created_at,
         unread_resident: 1,
       }).eq("id", params.id);
       setNewMsg("");
