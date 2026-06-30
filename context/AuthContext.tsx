@@ -30,6 +30,14 @@ const AuthContext = createContext<AuthContextType>({
   signOut: async () => {},
 });
 
+// Helper: race a promise against a timeout
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
+  return Promise.race([
+    promise,
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), ms)),
+  ]);
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [userState, setUserState] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -50,16 +58,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (cancelled) return;
       try {
         setAuthUserId(uid);
-        const { data: profile, error } = await supabase
-          .from("users")
-          .select("*")
-          .eq("id", uid)
-          .maybeSingle();
+        // 10 second timeout on profile fetch
+        const result = await withTimeout(
+          Promise.resolve(supabase.from("users").select("*").eq("id", uid).maybeSingle()),
+          10000
+        );
 
         if (cancelled) return;
+
+        if (!result) {
+          // Timeout: assume onboarding needed, don't block
+          setUserState(null);
+          setNeedsOnboarding(true);
+          return;
+        }
+
+        const { data: profile, error } = result;
         if (error) {
           console.error("Profile load error:", error);
-          setLoading(false);
           return;
         }
         if (profile) {
@@ -83,76 +99,90 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await Preferences.set({ key: "last_used_code", value: code });
       } catch (e) {}
 
-      const { error } = await supabase.auth.exchangeCodeForSession(code);
-      if (error) {
-        console.error("Code exchange failed:", error.message);
+      const result = await withTimeout(
+        supabase.auth.exchangeCodeForSession(code),
+        10000
+      );
+      if (!result || result.error) {
+        console.error("Code exchange failed:", result?.error?.message ?? "timeout");
         return false;
       }
       return true;
     }
 
     async function init() {
+      // Hard safety net: if init takes >20s, stop the loading spinner
+      const safetyTimer = setTimeout(() => {
+        if (!cancelled) {
+          console.warn("Auth init safety timeout fired");
+          setLoading(false);
+        }
+      }, 20000);
+
       try {
         let isNative = false;
         let launchUrl: string | null = null;
 
-        // --- Step 1: Check if we're on native and if there's a launch URL ---
+        // Step 1: Check if native and grab launch URL
         try {
           const { Capacitor } = await import("@capacitor/core");
           if (Capacitor.isNativePlatform()) {
             isNative = true;
             const { App } = await import("@capacitor/app");
-            const result = await App.getLaunchUrl();
+            const result = await withTimeout(App.getLaunchUrl(), 3000);
             if (result?.url) launchUrl = result.url;
           }
         } catch (e) {}
 
-        // --- Step 2: If there's a launch URL with a code, handle it FIRST ---
+        // Step 2: Handle launch URL code BEFORE checking session
         if (launchUrl && launchUrl.includes("code=")) {
-          const urlObj = new URL(launchUrl);
-          const code = urlObj.searchParams.get("code");
-          if (code) {
-            // Check if code was already used
-            let isStale = false;
-            try {
-              const { Preferences } = await import("@capacitor/preferences");
-              const { value } = await Preferences.get({ key: "last_used_code" });
-              if (value === code) isStale = true;
-            } catch (e) {}
+          try {
+            const urlObj = new URL(launchUrl);
+            const code = urlObj.searchParams.get("code");
+            if (code) {
+              let isStale = false;
+              try {
+                const { Preferences } = await import("@capacitor/preferences");
+                const { value } = await Preferences.get({ key: "last_used_code" });
+                if (value === code) isStale = true;
+              } catch (e) {}
 
-            if (!isStale) {
-              // Only exchange if we don't already have a valid session
-              const { data: existing } = await supabase.auth.getSession();
-              if (!existing.session) {
-                await tryExchangeCode(code);
+              if (!isStale) {
+                // Only exchange if we genuinely don't have a session
+                const existing = await withTimeout(supabase.auth.getSession(), 5000);
+                if (!existing?.data.session) {
+                  await tryExchangeCode(code);
+                }
               }
-            }
 
-            try {
-              const { Browser } = await import("@capacitor/browser");
-              await Browser.close();
-            } catch (e) {}
+              try {
+                const { Browser } = await import("@capacitor/browser");
+                await Browser.close();
+              } catch (e) {}
+            }
+          } catch (e) {
+            console.error("Launch URL handling error:", e);
           }
         }
 
-        // --- Step 3: Now read the session (which will be valid if exchange worked or was already saved) ---
-        if (cancelled) return;
+        if (cancelled) { clearTimeout(safetyTimer); return; }
 
-        // On native: try to restore from refresh token if getSession returns null
-        let { data: { session }, error } = await supabase.auth.getSession();
+        // Step 3: Read session — should be valid now
+        let session = null;
+        try {
+          const result = await withTimeout(supabase.auth.getSession(), 8000);
+          session = result?.data.session ?? null;
+        } catch (e) {}
 
+        // Step 4: If still no session on native, try refreshing
         if (!session && isNative) {
-          // Supabase might need a refreshSession call to pick up the stored token
-          const { data: refreshed } = await supabase.auth.refreshSession();
-          if (refreshed.session) session = refreshed.session;
+          try {
+            const result = await withTimeout(supabase.auth.refreshSession(), 8000);
+            session = result?.data.session ?? null;
+          } catch (e) {}
         }
 
-        if (cancelled) return;
-        if (error) {
-          console.error("Session error:", error);
-          setLoading(false);
-          return;
-        }
+        if (cancelled) { clearTimeout(safetyTimer); return; }
 
         if (session?.user) {
           await loadProfile(session.user.id);
@@ -163,7 +193,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setLoading(false);
         }
 
-        // --- Step 4: Set up live deep link listener for while app is running ---
+        // Step 5: Live deep link listener
         if (isNative) {
           try {
             const { App } = await import("@capacitor/app");
@@ -181,15 +211,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               } catch (e) {}
 
               if (!isStale) {
-                const { data: current } = await supabase.auth.getSession();
-                if (!current.session) {
+                const current = await withTimeout(supabase.auth.getSession(), 5000);
+                if (!current?.data.session) {
                   const ok = await tryExchangeCode(code);
                   if (ok) {
-                    const { data: { session: s } } = await supabase.auth.getSession();
-                    if (s?.user) await loadProfile(s.user.id);
+                    const after = await withTimeout(supabase.auth.getSession(), 5000);
+                    if (after?.data.session?.user) await loadProfile(after.data.session.user.id);
                   }
-                } else if (current.session?.user) {
-                  await loadProfile(current.session.user.id);
+                } else if (current.data.session?.user) {
+                  if (!userState) await loadProfile(current.data.session.user.id);
                 }
               }
 
@@ -209,19 +239,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setAuthUserId(null);
           setLoading(false);
         }
+      } finally {
+        clearTimeout(safetyTimer);
       }
     }
 
     init();
 
-    // Listen for auth state changes (token refresh, sign out, etc.)
+    // Auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (cancelled) return;
         if (event === "SIGNED_IN" && session?.user) {
           await loadProfile(session.user.id);
         } else if (event === "TOKEN_REFRESHED" && session?.user) {
-          // Session refreshed successfully, make sure profile is set
           if (!userState) await loadProfile(session.user.id);
         } else if (event === "SIGNED_OUT") {
           if (!cancelled) {
