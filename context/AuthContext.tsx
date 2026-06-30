@@ -58,35 +58,60 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (cancelled) return;
       try {
         setAuthUserId(uid);
-        // 10 second timeout on profile fetch
-        const result = await withTimeout(
-          Promise.resolve(supabase.from("users").select("*").eq("id", uid).maybeSingle()),
-          10000
-        );
+
+        // Try up to 2 times with increasing timeouts (network may not be ready on cold start)
+        let profile = null;
+        let fetchError = null;
+        for (let attempt = 1; attempt <= 2; attempt++) {
+          const timeout = attempt === 1 ? 8000 : 15000;
+          const result = await withTimeout(
+            Promise.resolve(supabase.from("users").select("*").eq("id", uid).maybeSingle()),
+            timeout
+          );
+
+          if (cancelled) return;
+
+          if (!result) {
+            // Timed out — wait a moment and retry
+            console.warn(`Profile fetch attempt ${attempt} timed out, ${attempt < 2 ? "retrying..." : "giving up"}`);
+            if (attempt < 2) await new Promise(r => setTimeout(r, 2000));
+            continue;
+          }
+
+          if (result.error) {
+            fetchError = result.error;
+            break;
+          }
+
+          profile = result.data;
+          break;
+        }
 
         if (cancelled) return;
 
-        if (!result) {
-          // Timeout: assume onboarding needed, don't block
+        if (fetchError) {
+          console.error("Profile load error:", fetchError);
+          // Don't send to onboarding on error — go to login
           setUserState(null);
-          setNeedsOnboarding(true);
+          setNeedsOnboarding(false);
+          setAuthUserId(null);
           return;
         }
 
-        const { data: profile, error } = result;
-        if (error) {
-          console.error("Profile load error:", error);
-          return;
-        }
         if (profile) {
           setUserState(profile as UserProfile);
           setNeedsOnboarding(false);
         } else {
+          // Truly no profile row — this is a real new user
           setUserState(null);
           setNeedsOnboarding(true);
         }
       } catch (err) {
         console.error("Profile exception:", err);
+        // On unexpected error, go to login, not onboarding
+        setUserState(null);
+        setNeedsOnboarding(false);
+        setAuthUserId(null);
       } finally {
         if (!cancelled) setLoading(false);
       }
