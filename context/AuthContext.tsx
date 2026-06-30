@@ -143,6 +143,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                       await loadProfile(session.user.id);
                     }
                   }
+                  
+                  // Close the browser overlay if it was open
+                  try {
+                    const { Browser } = await import("@capacitor/browser");
+                    await Browser.close();
+                  } catch (e) {}
                 }
               }
             });
