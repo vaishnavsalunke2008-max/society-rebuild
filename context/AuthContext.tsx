@@ -171,16 +171,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           try {
             const { Preferences } = await import("@capacitor/preferences");
             const { value: rt } = await Preferences.get({ key: "sh_rt" });
-            if (rt) {
-              // Use refreshSession which only needs the stored refresh token
-              // Supabase picks up the stored session from memory if available
-              const { data: rd } = await supabase.auth.refreshSession();
-              if (rd.session) {
-                session = rd.session;
-                await saveTokens(session);
+            const { value: at } = await Preferences.get({ key: "sh_at" });
+            if (rt && at) {
+              // setSession uses the refresh token if the access token is expired
+              const result = await Promise.race([
+                supabase.auth.setSession({ access_token: at, refresh_token: rt }),
+                new Promise<null>((resolve) => setTimeout(() => resolve(null), 10000)),
+              ]);
+              const restoredSession = result && "data" in result ? result.data.session : null;
+              if (restoredSession) {
+                session = restoredSession;
+                await saveTokens(session); // keep Preferences up to date with refreshed tokens
               }
             }
-          } catch (_) {}
+          } catch (e) {
+            console.warn("Prefs restore failed:", e);
+          }
         }
 
         if (cancelled) { clearTimeout(safety); return; }
