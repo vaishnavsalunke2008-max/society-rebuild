@@ -1,16 +1,26 @@
 "use client";
 
-import { useState, Suspense } from "react";
+import { useState, Suspense, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Building2, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
+import { useAuth } from "@/context/AuthContext";
 
 function LoginContent() {
   const [loading, setLoading] = useState(false);
   const searchParams = useSearchParams();
   const error = searchParams.get("error");
   const supabase = createClient();
+  const { user, needsOnboarding } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (user) {
+      if (needsOnboarding) router.replace("/onboarding");
+      else router.replace(user.role === "admin" ? "/admin/updates" : "/dashboard/updates");
+    }
+  }, [user, needsOnboarding, router]);
 
   async function signInWithGoogle() {
     setLoading(true);
