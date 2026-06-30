@@ -125,15 +125,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const { Capacitor } = await import("@capacitor/core");
           if (Capacitor.isNativePlatform()) {
             const { App } = await import("@capacitor/app");
-            capAppListener = await App.addListener("appUrlOpen", async (event) => {
-              const urlStr = event.url;
-              
+
+            const handleUrl = async (urlStr: string) => {
               // Handle PKCE Flow
               if (urlStr.includes("code=")) {
                 const urlObj = new URL(urlStr);
                 const code = urlObj.searchParams.get("code");
                 if (code) {
                   const { error } = await supabase.auth.exchangeCodeForSession(code);
+                  if (error) alert("Login Error: " + error.message);
                   if (!error) {
                     const { data: { session } } = await supabase.auth.getSession();
                     if (session?.user) {
@@ -157,20 +157,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     access_token: accessToken,
                     refresh_token: refreshToken,
                   });
+                  if (error) alert("Login Error: " + error.message);
                   if (!error) {
                     const { data: { session } } = await supabase.auth.getSession();
                     if (session?.user) {
                       await loadProfile(session.user.id);
                     }
                   }
-                  
-                  // Close the browser overlay if it was open
                   try {
                     const { Browser } = await import("@capacitor/browser");
                     await Browser.close();
                   } catch (e) {}
                 }
               }
+            };
+
+            // Check if app was just cold-launched by the OAuth deep link
+            const launchUrl = await App.getLaunchUrl();
+            if (launchUrl?.url) {
+              await handleUrl(launchUrl.url);
+            }
+
+            // Listen for deep link if app is already running
+            capAppListener = await App.addListener("appUrlOpen", async (event) => {
+              await handleUrl(event.url);
             });
           }
         } catch (e) {
