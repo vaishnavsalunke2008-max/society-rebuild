@@ -181,7 +181,7 @@ function ChatDetailContent() {
           onChange={(e) => setNewMsg(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendMessage()}
           placeholder="Type a message..."
-          className="flex-1 text-sm rounded-xl px-4 py-2.5 outline-none"
+          className="flex-1 min-w-0 text-sm rounded-xl px-4 py-2.5 outline-none"
           style={{ background: "var(--surface-2)", color: "var(--text)", border: "1px solid var(--border)" }}
         />
         <button

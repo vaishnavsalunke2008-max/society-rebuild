@@ -383,7 +383,7 @@ export default function CommunityPage() {
                       onChange={(e) => setCommentContent(e.target.value)}
                       onKeyDown={(e) => { if (e.key === "Enter") handleCommentSubmit(post.id); }}
                       placeholder="Write a comment..."
-                      className="flex-1 text-sm rounded-full px-4 py-2 outline-none"
+                      className="flex-1 min-w-0 text-sm rounded-full px-4 py-2 outline-none"
                       style={{ background: "var(--surface-2)", color: "var(--text)", border: "1px solid var(--border)" }}
                     />
                     <button
