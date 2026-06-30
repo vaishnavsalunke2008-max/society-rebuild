@@ -127,7 +127,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const { App } = await import("@capacitor/app");
             capAppListener = await App.addListener("appUrlOpen", async (event) => {
               const urlStr = event.url;
-              if (urlStr.includes("#access_token=")) {
+              
+              // Handle PKCE Flow
+              if (urlStr.includes("code=")) {
+                const urlObj = new URL(urlStr);
+                const code = urlObj.searchParams.get("code");
+                if (code) {
+                  const { error } = await supabase.auth.exchangeCodeForSession(code);
+                  if (!error) {
+                    const { data: { session } } = await supabase.auth.getSession();
+                    if (session?.user) {
+                      await loadProfile(session.user.id);
+                    }
+                  }
+                  try {
+                    const { Browser } = await import("@capacitor/browser");
+                    await Browser.close();
+                  } catch (e) {}
+                }
+              } 
+              // Handle Implicit Flow
+              else if (urlStr.includes("#access_token=")) {
                 const hashFragment = urlStr.split("#")[1];
                 const params = new URLSearchParams(hashFragment);
                 const accessToken = params.get("access_token");
