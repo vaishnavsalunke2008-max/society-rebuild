@@ -23,6 +23,7 @@ export default function AdminEventsPage() {
   const { t } = useLanguage();
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [formOpen, setFormOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -125,7 +126,16 @@ export default function AdminEventsPage() {
         const past = new Date(event.event_date) < new Date();
         return (
           <motion.div key={event.id} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
-            className={`glass rounded-2xl p-4 group ${past ? "opacity-60" : ""}`}>
+            className={`glass rounded-2xl p-4 group cursor-pointer ${past ? "opacity-60" : ""}`}
+            onClick={() => {
+              setExpandedIds((prev) => {
+                const next = new Set(prev);
+                if (next.has(event.id)) next.delete(event.id);
+                else next.add(event.id);
+                return next;
+              });
+            }}
+          >
             <div className="flex items-start justify-between gap-2">
               <div className="flex items-start gap-4 flex-1 min-w-0">
                 <div className="flex flex-col items-center min-w-[44px]">
@@ -143,7 +153,7 @@ export default function AdminEventsPage() {
                       {past ? t("events.past") : t("events.upcoming")}
                     </span>
                   </div>
-                  {event.description && <p className="text-xs mb-1 line-clamp-1" style={{ color: "var(--text-muted)" }}>{event.description}</p>}
+                  {event.description && <p className={expandedIds.has(event.id) ? "text-xs mb-1 whitespace-pre-wrap" : "text-xs mb-1 line-clamp-1"} style={{ color: "var(--text-muted)" }}>{event.description}</p>}
                   <div className="flex flex-col gap-0.5">
                     <p className="text-xs" style={{ color: "var(--text-muted)" }}>🕐 {formatDate(event.event_date)} at {formatTime(event.event_date)}</p>
                     {event.location && (
@@ -154,7 +164,7 @@ export default function AdminEventsPage() {
                   </div>
                 </div>
               </div>
-              <button onClick={() => deleteEvent(event.id)}
+              <button onClick={(e) => { e.stopPropagation(); deleteEvent(event.id); }}
                 className="w-8 h-8 rounded-lg flex items-center justify-center text-red-500 opacity-0 group-hover:opacity-100 hover:bg-red-50 dark:hover:bg-red-500/10 transition-all flex-shrink-0">
                 <Trash2 size={15} />
               </button>

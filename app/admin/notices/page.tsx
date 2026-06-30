@@ -33,6 +33,7 @@ export default function AdminNoticesPage() {
   const { t } = useLanguage();
   const [notices, setNotices] = useState<Notice[]>([]);
   const [loading, setLoading] = useState(true);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [formOpen, setFormOpen] = useState(false);
   const [category, setCategory] = useState<string>("general");
   const [title, setTitle] = useState("");
@@ -167,7 +168,16 @@ export default function AdminNoticesPage() {
         const cat = categoryConfig[n.category] || categoryConfig.general;
         return (
           <motion.div key={n.id} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
-            className="glass rounded-2xl overflow-hidden group">
+            className="glass rounded-2xl overflow-hidden group cursor-pointer"
+            onClick={() => {
+              setExpandedIds((prev) => {
+                const next = new Set(prev);
+                if (next.has(n.id)) next.delete(n.id);
+                else next.add(n.id);
+                return next;
+              });
+            }}
+          >
             {n.image_url && (
               <div className="relative w-full h-36">
                 <Image src={n.image_url} alt={n.title} fill className="object-cover" />
@@ -185,7 +195,7 @@ export default function AdminNoticesPage() {
                 </div>
               </div>
               <h3 className="font-semibold text-sm mb-1" style={{ color: "var(--text)" }}>{n.title}</h3>
-              <p className="text-sm line-clamp-3" style={{ color: "var(--text-muted)" }}>{n.body}</p>
+              <p className={expandedIds.has(n.id) ? "text-sm whitespace-pre-wrap" : "text-sm line-clamp-3"} style={{ color: "var(--text-muted)" }}>{n.body}</p>
               {n.users?.full_name && (
                 <p className="text-xs mt-2" style={{ color: "var(--text-muted)" }}>— {n.users.full_name}</p>
               )}

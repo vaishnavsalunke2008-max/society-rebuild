@@ -27,6 +27,7 @@ export default function EventsPage() {
   const { t } = useLanguage();
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const supabase = createClient();
 
   async function loadEvents() {
@@ -116,7 +117,15 @@ export default function EventsPage() {
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.05 }}
-            className={`glass rounded-2xl overflow-hidden ${past ? "opacity-60" : ""}`}
+            className={`glass rounded-2xl overflow-hidden cursor-pointer ${past ? "opacity-60" : ""}`}
+            onClick={() => {
+              setExpandedIds((prev) => {
+                const next = new Set(prev);
+                if (next.has(event.id)) next.delete(event.id);
+                else next.add(event.id);
+                return next;
+              });
+            }}
           >
             {event.image_url && (
               <div className="relative w-full h-40">
@@ -150,7 +159,7 @@ export default function EventsPage() {
                     {event.title}
                   </h3>
                   {event.description && (
-                    <p className="text-xs mt-1 line-clamp-2" style={{ color: "var(--text-muted)" }}>
+                    <p className={expandedIds.has(event.id) ? "text-xs mt-1 whitespace-pre-wrap" : "text-xs mt-1 line-clamp-2"} style={{ color: "var(--text-muted)" }}>
                       {event.description}
                     </p>
                   )}
@@ -175,7 +184,7 @@ export default function EventsPage() {
 
               {!past && (
                 <button
-                  onClick={() => toggleRsvp(event)}
+                  onClick={(e) => { e.stopPropagation(); toggleRsvp(event); }}
                   className={`mt-3 w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
                     event.rsvped
                       ? "bg-emerald-500 text-white"

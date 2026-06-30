@@ -29,6 +29,7 @@ export default function UpdatesPage() {
   const { t } = useLanguage();
   const [notices, setNotices] = useState<Notice[]>([]);
   const [loading, setLoading] = useState(true);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const supabase = createClient();
@@ -84,7 +85,15 @@ export default function UpdatesPage() {
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.05 }}
-            className="glass rounded-2xl overflow-hidden"
+            className="glass rounded-2xl overflow-hidden cursor-pointer"
+            onClick={() => {
+              setExpandedIds((prev) => {
+                const next = new Set(prev);
+                if (next.has(notice.id)) next.delete(notice.id);
+                else next.add(notice.id);
+                return next;
+              });
+            }}
           >
             {notice.image_url && (
               <div className="relative w-full h-40">
@@ -105,7 +114,7 @@ export default function UpdatesPage() {
                   <h2 className="font-semibold text-sm leading-snug mb-1" style={{ color: "var(--text)" }}>
                     {notice.title}
                   </h2>
-                  <p className="text-sm line-clamp-2" style={{ color: "var(--text-muted)" }}>
+                  <p className={expandedIds.has(notice.id) ? "text-sm whitespace-pre-wrap mt-1" : "text-sm line-clamp-2 mt-1"} style={{ color: "var(--text-muted)" }}>
                     {notice.body}
                   </p>
                   {notice.users?.full_name && (
@@ -114,7 +123,11 @@ export default function UpdatesPage() {
                     </p>
                   )}
                 </div>
-                <ChevronRight size={16} style={{ color: "var(--text-muted)" }} className="flex-shrink-0 mt-0.5" />
+                <ChevronRight 
+                  size={16} 
+                  style={{ color: "var(--text-muted)", transform: expandedIds.has(notice.id) ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 0.2s" }} 
+                  className="flex-shrink-0 mt-0.5" 
+                />
               </div>
             </div>
           </motion.div>
