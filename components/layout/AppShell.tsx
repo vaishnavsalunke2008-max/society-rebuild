@@ -154,11 +154,7 @@ function Sidebar({ open, onClose, role }: { open: boolean; onClose: () => void; 
               {/* Push Notifications */}
               <PushToggle />
 
-              {/* Send Feedback */}
-              <button className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 transition-colors" style={{ background: "var(--surface-2)" }}>
-                <Send size={18} style={{ color: "var(--primary)" }} />
-                <span className="text-sm font-medium" style={{ color: "var(--text)" }}>{t("sidebar.feedback")}</span>
-              </button>
+
 
               {/* Role info */}
               <div className="p-3 rounded-xl" style={{ background: "var(--primary-glow)", border: "1px solid var(--primary)" }}>
