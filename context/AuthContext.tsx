@@ -53,8 +53,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const supabase = createClient();
     let cancelled = false;
     let capAppListener: any = null;
+    let initCompleted = false; // blocks SIGNED_OUT events during retry phase
 
-    async function loadProfile(uid: string, authUser?: Session["user"]) {
+    async function loadProfile(uid: string) {
       if (cancelled) return;
       setAuthUserId(uid);
       try {
@@ -66,7 +67,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (cancelled) return;
 
         if (!result) {
-          // Network timeout — don't assume anything, go to login
+          // Network timeout — go to login, not onboarding
           setUserState(null);
           setNeedsOnboarding(false);
           setAuthUserId(null);
@@ -83,25 +84,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
 
         if (profile) {
-          // Fix: if avatar_url missing in DB, pull it from Google auth metadata and update
+          // Always fetch fresh avatar from Google via server (JWT metadata can be stale)
           let avatarUrl = profile.avatar_url;
-          if (!avatarUrl && authUser?.user_metadata?.avatar_url) {
-            avatarUrl = authUser.user_metadata.avatar_url;
-            // Update DB silently
-            supabase.from("users")
-              .update({ avatar_url: avatarUrl })
-              .eq("id", uid)
-              .then(() => {});
-          } else if (!avatarUrl) {
-            // Fetch from supabase auth in case we didn't receive authUser
-            const { data: au } = await supabase.auth.getUser();
-            if (au.user?.user_metadata?.avatar_url) {
-              avatarUrl = au.user.user_metadata.avatar_url;
-              supabase.from("users")
-                .update({ avatar_url: avatarUrl })
-                .eq("id", uid)
-                .then(() => {});
-            }
+          if (!avatarUrl) {
+            try {
+              const { data: au } = await supabase.auth.getUser();
+              const meta = au.user?.user_metadata;
+              // Google OAuth can store it as avatar_url or picture
+              avatarUrl = meta?.avatar_url ?? meta?.picture ?? null;
+              if (avatarUrl) {
+                supabase.from("users")
+                  .update({ avatar_url: avatarUrl })
+                  .eq("id", uid)
+                  .then(() => {});
+              }
+            } catch (e) {}
           }
 
           setUserState({ ...(profile as UserProfile), avatar_url: avatarUrl });
@@ -158,7 +155,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         if (session?.user) {
           // Session restored successfully — go straight to dashboard
-          await loadProfile(session.user.id, session.user);
+          await loadProfile(session.user.id);
+          initCompleted = true;
           clearTimeout(safetyTimer);
           setupDeepLinkListener(isNative);
           return;
@@ -213,7 +211,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (cancelled) { clearTimeout(safetyTimer); return; }
 
         if (oauthSession?.user) {
-          await loadProfile(oauthSession.user.id, oauthSession.user);
+          await loadProfile(oauthSession.user.id);
         } else {
           // Truly no session — show login
           setUserState(null);
@@ -222,6 +220,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setLoading(false);
         }
 
+        initCompleted = true;
         setupDeepLinkListener(isNative);
       } catch (err) {
         console.error("Init exception:", err);
@@ -232,6 +231,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setLoading(false);
         }
       } finally {
+        initCompleted = true;
         clearTimeout(safetyTimer);
       }
     }
@@ -257,7 +257,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           // Check if we already have a session (appUrlOpen can fire on resume)
           const current = await withTimeout(supabase.auth.getSession(), 5000);
           if (current?.data.session?.user) {
-            if (!userState) await loadProfile(current.data.session.user.id, current.data.session.user);
+            if (!userState) await loadProfile(current.data.session.user.id);
             return;
           }
 
@@ -269,7 +269,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
           const exchanged = await withTimeout(supabase.auth.exchangeCodeForSession(code), 12000);
           if (exchanged?.data.session?.user) {
-            await loadProfile(exchanged.data.session.user.id, exchanged.data.session.user);
+            await loadProfile(exchanged.data.session.user.id);
           }
 
           try {
@@ -288,10 +288,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       async (event, session) => {
         if (cancelled) return;
         if (event === "SIGNED_IN" && session?.user) {
-          await loadProfile(session.user.id, session.user);
+          await loadProfile(session.user.id);
         } else if (event === "TOKEN_REFRESHED" && session?.user) {
-          if (!userState) await loadProfile(session.user.id, session.user);
+          if (!userState) await loadProfile(session.user.id);
         } else if (event === "SIGNED_OUT") {
+          // Only act on SIGNED_OUT after init completes — prevents retry flashes
+          if (!initCompleted) return;
           if (!cancelled) {
             setUserState(null);
             setNeedsOnboarding(false);
