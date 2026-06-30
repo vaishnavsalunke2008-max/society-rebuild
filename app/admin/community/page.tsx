@@ -31,7 +31,7 @@ export default function AdminCommunityPage() {
   async function loadPosts() {
     const { data } = await supabase
       .from("posts")
-      .select("*, users(full_name, flat_number, role)")
+      .select("*, users!author_id(full_name, flat_number, role)")
       .order("created_at", { ascending: false });
     setPosts((data as Post[]) || []);
     setLoading(false);
