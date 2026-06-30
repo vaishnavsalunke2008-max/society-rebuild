@@ -14,10 +14,20 @@ function LoginContent() {
 
   async function signInWithGoogle() {
     setLoading(true);
+    
+    // Use deep link if on native Android, otherwise use standard web origin
+    let redirectUrl = `${window.location.origin}/`;
+    if (typeof window !== "undefined") {
+      const isNative = document.URL.startsWith("http://localhost") || document.URL.startsWith("capacitor://");
+      if (isNative || navigator.userAgent.includes("Capacitor")) {
+        redirectUrl = "com.vaishnav.societyhub://login-callback";
+      }
+    }
+    
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/`,
+        redirectTo: redirectUrl,
         queryParams: {
           access_type: "offline",
           prompt: "consent",

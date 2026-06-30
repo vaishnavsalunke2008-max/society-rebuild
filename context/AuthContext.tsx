@@ -117,6 +117,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     init();
 
+    // Setup deep link listener for Capacitor OAuth
+    let capAppListener: any = null;
+    async function setupDeepLinkListener() {
+      if (typeof window !== "undefined") {
+        try {
+          const { Capacitor } = await import("@capacitor/core");
+          if (Capacitor.isNativePlatform()) {
+            const { App } = await import("@capacitor/app");
+            capAppListener = await App.addListener("appUrlOpen", async (event) => {
+              const urlStr = event.url;
+              if (urlStr.includes("#access_token=")) {
+                const hashFragment = urlStr.split("#")[1];
+                const params = new URLSearchParams(hashFragment);
+                const accessToken = params.get("access_token");
+                const refreshToken = params.get("refresh_token");
+                if (accessToken && refreshToken) {
+                  const { error } = await supabase.auth.setSession({
+                    access_token: accessToken,
+                    refresh_token: refreshToken,
+                  });
+                  if (!error) {
+                    const { data: { session } } = await supabase.auth.getSession();
+                    if (session?.user) {
+                      await loadProfile(session.user.id);
+                    }
+                  }
+                }
+              }
+            });
+          }
+        } catch (e) {
+          console.error("Capacitor appUrlOpen error:", e);
+        }
+      }
+    }
+    setupDeepLinkListener();
+
     // 3. Listen for live events (like user clicking sign out)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
@@ -149,6 +186,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       cancelled = true;
       clearTimeout(fallback);
       subscription.unsubscribe();
+      if (capAppListener && typeof capAppListener.remove === 'function') {
+        capAppListener.remove();
+      }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
