@@ -17,6 +17,15 @@ type Post = {
   created_at: string;
   author_id: string;
   users: { full_name: string; flat_number: string; role: string; avatar_url?: string | null } | null;
+  liked?: boolean;
+};
+
+type Comment = {
+  id: string;
+  post_id: string;
+  content: string;
+  created_at: string;
+  users: { full_name: string; avatar_url?: string | null } | null;
 };
 
 export default function AdminCommunityPage() {
@@ -24,8 +33,11 @@ export default function AdminCommunityPage() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
-  const [content, setContent] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [expandedPostId, setExpandedPostId] = useState<string | null>(null);
+  const [comments, setComments] = useState<Record<string, Comment[]>>({});
+  const [commentContent, setCommentContent] = useState("");
+  const [submittingComment, setSubmittingComment] = useState(false);
   const supabase = createClient();
 
   async function loadPosts() {
@@ -33,8 +45,66 @@ export default function AdminCommunityPage() {
       .from("posts")
       .select("*, users!author_id(full_name, flat_number, role, avatar_url)")
       .order("created_at", { ascending: false });
-    setPosts((data as Post[]) || []);
+
+    if (data && user) {
+      const { data: likes } = await supabase.from("post_likes").select("post_id").eq("user_id", user.id);
+      const likedIds = new Set((likes || []).map((l) => l.post_id));
+      setPosts((data as Post[]).map((p) => ({ ...p, liked: likedIds.has(p.id) })));
+    } else {
+      setPosts((data as Post[]) || []);
+    }
     setLoading(false);
+  }
+
+  async function toggleLike(post: Post) {
+    if (!user) return;
+    if (post.liked) {
+      await supabase.from("post_likes").delete().match({ post_id: post.id, user_id: user.id });
+    } else {
+      await supabase.from("post_likes").insert({ post_id: post.id, user_id: user.id });
+    }
+    setPosts((prev) =>
+      prev.map((p) =>
+        p.id === post.id
+          ? { ...p, liked: !post.liked, likes_count: post.liked ? p.likes_count - 1 : p.likes_count + 1 }
+          : p
+      )
+    );
+  }
+
+  async function loadComments(postId: string) {
+    const { data } = await supabase
+      .from("comments")
+      .select("*, users!author_id(full_name, avatar_url)")
+      .eq("post_id", postId)
+      .order("created_at", { ascending: true });
+    if (data) {
+      setComments((prev) => ({ ...prev, [postId]: data as Comment[] }));
+    }
+  }
+
+  function toggleComments(postId: string) {
+    if (expandedPostId === postId) {
+      setExpandedPostId(null);
+    } else {
+      setExpandedPostId(postId);
+      if (!comments[postId]) loadComments(postId);
+    }
+  }
+
+  async function handleCommentSubmit(postId: string) {
+    if (!commentContent.trim() || !user) return;
+    setSubmittingComment(true);
+    const { error } = await supabase.from("comments").insert({
+      post_id: postId,
+      author_id: user.id,
+      content: commentContent.trim(),
+    });
+    if (!error) {
+      setCommentContent("");
+      await loadComments(postId);
+    }
+    setSubmittingComment(false);
   }
 
   useEffect(() => { loadPosts(); }, []);
@@ -146,13 +216,75 @@ export default function AdminCommunityPage() {
             </div>
           )}
           <div className="px-4 py-3 flex items-center gap-4 border-t border-themed">
-            <div className="flex items-center gap-1.5 text-sm" style={{ color: "var(--text-muted)" }}>
-              <Heart size={16} /> {post.likes_count > 0 && post.likes_count}
-            </div>
-            <div className="flex items-center gap-1.5 text-sm" style={{ color: "var(--text-muted)" }}>
+            <button
+              onClick={() => toggleLike(post)}
+              className="flex items-center gap-1.5 text-sm font-medium transition-colors"
+              style={{ color: post.liked ? "#ef4444" : "var(--text-muted)" }}
+            >
+              <Heart size={16} fill={post.liked ? "#ef4444" : "none"} stroke={post.liked ? "#ef4444" : "currentColor"} /> 
+              {post.likes_count > 0 && post.likes_count}
+            </button>
+            <button
+              onClick={() => toggleComments(post.id)}
+              className="flex items-center gap-1.5 text-sm font-medium transition-colors"
+              style={{ color: expandedPostId === post.id ? "var(--primary)" : "var(--text-muted)" }}
+            >
               <MessageSquare size={16} /> Comment
-            </div>
+            </button>
           </div>
+
+          <AnimatePresence>
+            {expandedPostId === post.id && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                className="overflow-hidden bg-black/5 dark:bg-white/5"
+              >
+                <div className="p-4 space-y-3">
+                  {/* Comment List */}
+                  <div className="space-y-3 max-h-48 overflow-y-auto">
+                    {comments[post.id]?.length === 0 && (
+                      <p className="text-xs text-center pb-2" style={{ color: "var(--text-muted)" }}>No comments yet. Be the first!</p>
+                    )}
+                    {comments[post.id]?.map((c) => (
+                      <div key={c.id} className="flex gap-2">
+                        {c.users?.avatar_url ? (
+                          <img src={c.users.avatar_url} alt="Profile" className="w-6 h-6 rounded-full object-cover flex-shrink-0" />
+                        ) : (
+                          <div className="w-6 h-6 rounded-full bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white font-bold text-[10px] flex-shrink-0">
+                            {getInitials(c.users?.full_name || "U")}
+                          </div>
+                        )}
+                        <div className="flex-1 bg-white dark:bg-slate-800 rounded-xl rounded-tl-none p-2 shadow-sm text-sm" style={{ border: "1px solid var(--border)" }}>
+                          <p className="font-semibold text-xs" style={{ color: "var(--text)" }}>{c.users?.full_name}</p>
+                          <p style={{ color: "var(--text)" }}>{c.content}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {/* Add Comment */}
+                  <div className="flex items-center gap-2 pt-2 border-t border-themed">
+                    <input
+                      value={commentContent}
+                      onChange={(e) => setCommentContent(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter") handleCommentSubmit(post.id); }}
+                      placeholder="Write a comment..."
+                      className="flex-1 text-sm rounded-full px-4 py-2 outline-none"
+                      style={{ background: "var(--surface-2)", color: "var(--text)", border: "1px solid var(--border)" }}
+                    />
+                    <button
+                      onClick={() => handleCommentSubmit(post.id)}
+                      disabled={submittingComment || !commentContent.trim()}
+                      className="w-9 h-9 rounded-full bg-emerald-500 text-white flex items-center justify-center flex-shrink-0 disabled:opacity-50"
+                    >
+                      {submittingComment ? <Loader2 size={16} className="animate-spin" /> : <Send size={14} className="ml-0.5" />}
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </motion.div>
       ))}
     </div>
