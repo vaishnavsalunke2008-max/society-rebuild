@@ -169,7 +169,7 @@ export default function ChatPage() {
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: i * 0.05 }}
-          onClick={() => router.push(`/dashboard/chat/${conv.id}`)}
+          onClick={() => router.push(`/dashboard/chat/view?id=${conv.id}`)}
           className="w-full glass rounded-2xl p-4 flex items-center gap-3 text-left hover:scale-[0.99] transition-transform"
         >
           {/* Admin Avatar */}
