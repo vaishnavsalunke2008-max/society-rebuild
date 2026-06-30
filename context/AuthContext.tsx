@@ -139,18 +139,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     if (value === code) isStale = true;
                   } catch (e) {}
 
+                  // Check if we ALREADY have a valid session before exchanging
+                  const { data: current } = await supabase.auth.getSession();
+                  if (current.session?.user) {
+                    console.log("Already logged in. Ignoring deep link.");
+                    // Ensure the profile is loaded
+                    if (!userState) await loadProfile(current.session.user.id);
+                    return;
+                  }
+
                   if (isStale) {
                     console.log("Ignoring stale OAuth code from cached intent");
                   } else {
+                    // Save it immediately so we NEVER process this code again, even if it fails
+                    try {
+                      const { Preferences } = await import("@capacitor/preferences");
+                      await Preferences.set({ key: "last_used_code", value: code });
+                    } catch (e) {}
+
                     const { error } = await supabase.auth.exchangeCodeForSession(code);
                     if (error) {
                       console.error("Login Error:", error.message);
                     } else {
-                      try {
-                        const { Preferences } = await import("@capacitor/preferences");
-                        await Preferences.set({ key: "last_used_code", value: code });
-                      } catch (e) {}
-                      
                       const { data: { session } } = await supabase.auth.getSession();
                       if (session?.user) {
                         await loadProfile(session.user.id);
