@@ -157,7 +157,7 @@ function AdminChatDetailContent() {
         <input value={newMsg} onChange={(e) => setNewMsg(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendMessage()}
           placeholder="Reply to resident..."
-          className="flex-1 text-sm rounded-xl px-4 py-2.5 outline-none"
+          className="flex-1 min-w-0 text-sm rounded-xl px-4 py-2.5 outline-none"
           style={{ background: "var(--surface-2)", color: "var(--text)", border: "1px solid var(--border)" }} />
         <button onClick={sendMessage} disabled={sending || !newMsg.trim()}
           className="w-10 h-10 rounded-xl flex items-center justify-center text-white disabled:opacity-50 flex-shrink-0"
