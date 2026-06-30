@@ -256,20 +256,20 @@ function BottomNav({ tabs }: { tabs: typeof residentTabKeys }) {
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/");
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-30 h-16 flex items-center justify-around px-2 backdrop-blur-md border-t border-themed bottom-nav-safe"
+    <nav className="fixed bottom-0 left-0 right-0 z-30 h-16 flex items-center justify-between px-1 backdrop-blur-md border-t border-themed bottom-nav-safe"
       style={{ background: "var(--surface)" }}>
       {tabs.map((tab) => {
         const active = isActive(tab.href);
         const label = t(tab.key);
         return (
           <Link key={tab.href} href={tab.href} id={`nav-${tab.key.split(".")[1]}`}
-            className="relative flex flex-col items-center gap-0.5 px-3 py-1 rounded-xl transition-colors">
+            className="relative flex flex-col items-center justify-center flex-1 h-full min-w-0 gap-1 rounded-xl transition-colors">
             {active && (
-              <motion.div layoutId="nav-active" className="absolute inset-0 rounded-xl bg-primary-500/10"
+              <motion.div layoutId="nav-active" className="absolute inset-1 rounded-xl bg-primary-500/10"
                 transition={{ type: "spring", stiffness: 400, damping: 30 }} />
             )}
             <tab.icon size={22} className={active ? "text-primary-500 dark:text-primary-400" : "text-slate-400 dark:text-slate-500"} />
-            <span className={`text-[10px] font-medium relative z-10 ${active ? "text-primary-500 dark:text-primary-400" : "text-slate-400 dark:text-slate-500"}`}>
+            <span className={`text-[10px] font-medium relative z-10 w-full text-center truncate px-1 ${active ? "text-primary-500 dark:text-primary-400" : "text-slate-400 dark:text-slate-500"}`}>
               {label}
             </span>
           </Link>
