@@ -74,17 +74,14 @@ export default function ProfilePage() {
           <div className="relative">
             {user.avatar_url ? (
               <div className="w-24 h-24 rounded-full overflow-hidden ring-4 ring-primary-500/30">
-                <Image src={user.avatar_url} alt={user.full_name} width={96} height={96} className="object-cover w-full h-full" />
+                <img src={user.avatar_url} alt={user.full_name} className="object-cover w-full h-full" />
               </div>
             ) : (
               <div className="w-24 h-24 rounded-full bg-gradient-to-br from-primary-400 to-primary-700 flex items-center justify-center text-white text-3xl font-bold ring-4 ring-primary-500/30">
                 {getInitials(user.full_name)}
               </div>
             )}
-            {/* Avatar hint */}
-            <div className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-primary-500 flex items-center justify-center shadow-md">
-              <Camera size={14} className="text-white" />
-            </div>
+
           </div>
           <div className="text-center">
             <p className="font-bold text-lg" style={{ color: "var(--text)" }}>{user.full_name}</p>

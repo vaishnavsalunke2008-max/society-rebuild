@@ -172,9 +172,13 @@ function Sidebar({ open, onClose, role }: { open: boolean; onClose: () => void; 
             {/* Bottom: User Profile Card */}
             <div className="p-4 border-t border-themed">
               <div className="flex items-center gap-3 p-3 rounded-xl" style={{ background: "var(--surface-2)" }}>
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-500 to-primary-700 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
-                  {getInitials(user?.full_name || "U")}
-                </div>
+                {user?.avatar_url ? (
+                  <img src={user.avatar_url} alt="Profile" className="w-10 h-10 rounded-full object-cover shadow-sm flex-shrink-0" />
+                ) : (
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-500 to-primary-700 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                    {getInitials(user?.full_name || "U")}
+                  </div>
+                )}
                 <div className="min-w-0">
                   <p className="text-sm font-semibold truncate" style={{ color: "var(--text)" }}>{user?.full_name}</p>
                   <p className="text-xs" style={{ color: "var(--text-muted)" }}>{t("common.flat")} {user?.flat_number}</p>
@@ -208,8 +212,12 @@ function TopHeader({ onMenuClick }: { onMenuClick: () => void }) {
       </div>
       <div className="relative">
         <button id="avatar-btn" onClick={() => setDropOpen(!dropOpen)}
-          className="w-9 h-9 rounded-full bg-gradient-to-br from-primary-500 to-primary-700 flex items-center justify-center text-white text-sm font-semibold">
-          {getInitials(user?.full_name || "U")}
+          className="w-9 h-9 rounded-full overflow-hidden bg-gradient-to-br from-primary-500 to-primary-700 flex items-center justify-center text-white text-sm font-semibold">
+          {user?.avatar_url ? (
+            <img src={user.avatar_url} alt="Profile" className="w-full h-full object-cover" />
+          ) : (
+            getInitials(user?.full_name || "U")
+          )}
         </button>
         <AnimatePresence>
           {dropOpen && (

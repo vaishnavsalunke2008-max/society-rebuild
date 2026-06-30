@@ -26,7 +26,7 @@ type Post = {
   likes_count: number;
   created_at: string;
   author_id: string;
-  users: { full_name: string; flat_number: string } | null;
+  users: { full_name: string; flat_number: string; avatar_url?: string | null } | null;
   liked?: boolean;
 };
 
@@ -47,7 +47,7 @@ export default function CommunityPage() {
   async function loadPosts() {
     const { data, error } = await supabase
       .from("posts")
-      .select("*, users!author_id(full_name, flat_number)")
+      .select("*, users!author_id(full_name, flat_number, avatar_url)")
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -159,9 +159,13 @@ export default function CommunityPage() {
           >
             <div className="glass rounded-2xl p-4 space-y-3">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white text-sm font-bold">
-                  {getInitials(user?.full_name || "U")}
-                </div>
+                {user?.avatar_url ? (
+                  <img src={user.avatar_url} alt="Profile" className="w-9 h-9 rounded-full object-cover" />
+                ) : (
+                  <div className="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white text-sm font-bold">
+                    {getInitials(user?.full_name || "U")}
+                  </div>
+                )}
                 <span className="font-semibold text-sm" style={{ color: "var(--text)" }}>
                   {user?.full_name}
                 </span>
@@ -247,9 +251,13 @@ export default function CommunityPage() {
         >
           <div className="p-4">
             <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
-                {getInitials(post.users?.full_name || "U")}
-              </div>
+              {post.users?.avatar_url ? (
+                <img src={post.users.avatar_url} alt="Profile" className="w-10 h-10 rounded-full object-cover flex-shrink-0 shadow-sm" />
+              ) : (
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                  {getInitials(post.users?.full_name || "U")}
+                </div>
+              )}
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-sm" style={{ color: "var(--text)" }}>
                   {post.users?.full_name || "Unknown"}

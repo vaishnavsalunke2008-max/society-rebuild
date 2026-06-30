@@ -16,7 +16,7 @@ type Post = {
   likes_count: number;
   created_at: string;
   author_id: string;
-  users: { full_name: string; flat_number: string; role: string } | null;
+  users: { full_name: string; flat_number: string; role: string; avatar_url?: string | null } | null;
 };
 
 export default function AdminCommunityPage() {
@@ -31,7 +31,7 @@ export default function AdminCommunityPage() {
   async function loadPosts() {
     const { data } = await supabase
       .from("posts")
-      .select("*, users!author_id(full_name, flat_number, role)")
+      .select("*, users!author_id(full_name, flat_number, role, avatar_url)")
       .order("created_at", { ascending: false });
     setPosts((data as Post[]) || []);
     setLoading(false);
@@ -79,9 +79,13 @@ export default function AdminCommunityPage() {
           <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
             <div className="glass rounded-2xl p-4 space-y-3">
               <div className="flex items-center gap-2 mb-1">
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white text-xs font-bold">
-                  {getInitials(user?.full_name || "A")}
-                </div>
+                {user?.avatar_url ? (
+                  <img src={user.avatar_url} alt="Profile" className="w-8 h-8 rounded-full object-cover shadow-sm" />
+                ) : (
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white text-xs font-bold">
+                    {getInitials(user?.full_name || "A")}
+                  </div>
+                )}
                 <span className="font-semibold text-sm" style={{ color: "var(--text)" }}>{user?.full_name}</span>
                 <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-primary-100 dark:bg-primary-500/10 text-primary-600 dark:text-primary-400">Admin</span>
               </div>
@@ -113,9 +117,13 @@ export default function AdminCommunityPage() {
         <motion.div key={post.id} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }} className="glass rounded-2xl overflow-hidden group">
           <div className="p-4">
             <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
-                {getInitials(post.users?.full_name || "U")}
-              </div>
+              {post.users?.avatar_url ? (
+                <img src={post.users.avatar_url} alt="Profile" className="w-10 h-10 rounded-full object-cover flex-shrink-0 shadow-sm" />
+              ) : (
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                  {getInitials(post.users?.full_name || "U")}
+                </div>
+              )}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <p className="font-semibold text-sm" style={{ color: "var(--text)" }}>{post.users?.full_name || "Unknown"}</p>
