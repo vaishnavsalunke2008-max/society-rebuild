@@ -28,8 +28,9 @@ jobs:
         run: npm run build
         env:
           NODE_ENV: production
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://lflwppxlfuzhuzqpqvqj.supabase.co' }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'fake-key-for-build' }}
+          NEXT_PUBLIC_SUPABASE_URL: https://lflwppxlfuzhuzqpqvqj.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxmbHdwcHhsZnV6aHV6cXBxdnFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzMDcxNDYsImV4cCI6MjA5Nzg4MzE0Nn0.tJCPUBW3_5sHZHCws1iCopquC0SQxIdk1T-LIihbmJc
+          NEXT_PUBLIC_ADMIN_CODE: ADMIN@2026
 
       - name: Setup Java JDK
         uses: actions/setup-java@v4
