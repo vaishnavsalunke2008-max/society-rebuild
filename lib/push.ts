@@ -52,7 +52,7 @@ export async function registerPushNotifications(userId: string): Promise<boolean
             platform: "android",
             updated_at: new Date().toISOString(),
           },
-          { onConflict: "user_id, token" }
+          { onConflict: "token" }
         );
         if (error) console.error("Error upserting FCM token:", error.message);
       });
