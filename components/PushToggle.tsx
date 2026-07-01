@@ -13,14 +13,30 @@ export function PushToggle() {
 
   useEffect(() => {
     setSupported(isPushSupported());
-    // Check if already subscribed
     if (isPushSupported()) {
-      navigator.serviceWorker.getRegistration("/sw.js").then(async (reg) => {
-        if (reg) {
-          const sub = await reg.pushManager.getSubscription();
-          setEnabled(!!sub);
-        }
-      });
+      let isNative = false;
+      try {
+        isNative = !!(window as any).Capacitor;
+      } catch (_) {}
+
+      if (isNative) {
+        // Native check permission
+        import("@capacitor/push-notifications").then(async ({ PushNotifications }) => {
+          try {
+            const perm = await PushNotifications.checkPermissions();
+            // Since we registers tokens when user enables push, we check if they granted permission
+            setEnabled(perm.receive === "granted");
+          } catch (_) {}
+        });
+      } else {
+        // Web PWA check
+        navigator.serviceWorker.getRegistration("/sw.js").then(async (reg) => {
+          if (reg) {
+            const sub = await reg.pushManager.getSubscription();
+            setEnabled(!!sub);
+          }
+        });
+      }
     }
   }, []);
 

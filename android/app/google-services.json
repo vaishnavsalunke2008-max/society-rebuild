@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "892548495618",
+    "project_id": "societyhub-56810",
+    "storage_bucket": "societyhub-56810.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:892548495618:android:c0d16af90216901284aa1b",
+        "android_client_info": {
+          "package_name": "com.vaishnav.societyhub"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBH2TMtZf3OSRWAvhn8xWJyJlxUULwmSY0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
