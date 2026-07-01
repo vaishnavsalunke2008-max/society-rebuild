@@ -18,14 +18,20 @@ type Message = {
 
 function AdminChatDetailContent() {
   const searchParams = useSearchParams();
-  const resolvedParams = { id: searchParams.get("id") || "" };
+  const resolvedParams = {
+    id: searchParams.get("id") || "",
+    resident_id: searchParams.get("resident_id") || "",
+  };
   const { user } = useAuth();
   const router = useRouter();
+  
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [newMsg, setNewMsg] = useState("");
   const [sending, setSending] = useState(false);
-  const [subject, setSubject] = useState("");
+  const [subject, setSubject] = useState("Direct Message");
+  const [recipientName, setRecipientName] = useState("Member");
+  const [conversationId, setConversationId] = useState<string | null>(null);
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const supabase = createClient();
@@ -33,36 +39,95 @@ function AdminChatDetailContent() {
   useEffect(() => {
     async function load() {
       try {
-        const { data: conv } = await supabase
-          .from("conversations")
-          .select("subject, resident_id")
-          .eq("id", resolvedParams.id)
-          .single();
-        if (conv) { setSubject(conv.subject); }
+        let activeResId = resolvedParams.resident_id;
 
-        const { data, error: selectError } = await supabase
-          .from("messages")
-          .select("*")
-          .eq("conversation_id", resolvedParams.id)
-          .order("created_at", { ascending: true });
-          
-        if (selectError) {
-          console.error("Select error:", selectError);
-          toast.error(`DB Read Error: ${selectError.message}`);
+        // A. Load existing conversation ID if passed
+        if (resolvedParams.id) {
+          setConversationId(resolvedParams.id);
+          const { data: conv } = await supabase
+            .from("conversations")
+            .select("subject, resident_id")
+            .eq("id", resolvedParams.id)
+            .single();
+          if (conv) {
+            setSubject(conv.subject);
+            activeResId = conv.resident_id;
+
+            // Load messages
+            const { data: msgs, error: selectError } = await supabase
+              .from("messages")
+              .select("*")
+              .eq("conversation_id", resolvedParams.id)
+              .order("created_at", { ascending: true });
+            
+            if (selectError) throw selectError;
+            setMessages((msgs as Message[]) || []);
+
+            // Mark as read
+            await supabase.from("conversations").update({ unread_admin: 0 }).eq("id", resolvedParams.id);
+          }
+        } 
+        // B. If no ID passed but resident_id is, check if a conversation already exists
+        else if (resolvedParams.resident_id) {
+          const { data: existingConv } = await supabase
+            .from("conversations")
+            .select("id, subject")
+            .eq("resident_id", resolvedParams.resident_id)
+            .order("last_message_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (existingConv) {
+            setConversationId(existingConv.id);
+            setSubject(existingConv.subject);
+
+            // Load messages
+            const { data: msgs, error: selectError } = await supabase
+              .from("messages")
+              .select("*")
+              .eq("conversation_id", existingConv.id)
+              .order("created_at", { ascending: true });
+            
+            if (selectError) throw selectError;
+            setMessages((msgs as Message[]) || []);
+
+            // Mark as read
+            await supabase.from("conversations").update({ unread_admin: 0 }).eq("id", existingConv.id);
+          } else {
+            // New conversation draft - start clean
+            setConversationId(null);
+            setSubject("Direct Message");
+            setMessages([]);
+          }
         }
-        
-        setMessages((data as Message[]) || []);
 
-        // Mark as read
-        await supabase.from("conversations").update({ unread_admin: 0 }).eq("id", resolvedParams.id);
+        // C. Fetch recipient details
+        if (activeResId) {
+          const { data: resUser } = await supabase
+            .from("users")
+            .select("full_name")
+            .eq("id", activeResId)
+            .single();
+          if (resUser) {
+            setRecipientName(resUser.full_name);
+          }
+        }
+      } catch (err: any) {
+        console.error("Load error:", err);
+        toast.error(`Error loading chat: ${err.message || err}`);
       } finally {
         setLoading(false);
       }
     }
     load();
+  }, [resolvedParams.id, resolvedParams.resident_id]);
+
+  // Reactive subscription on conversationId change
+  useEffect(() => {
+    if (!conversationId) return;
 
     const channel = supabase
-      .channel(`chat-${resolvedParams.id}`)
+      .channel(`chat-${conversationId}`)
       .on("broadcast", { event: "new-message" }, (payload) => {
         setMessages((prev) => {
           if (prev.find((m) => m.id === payload.payload.id)) return prev;
@@ -70,8 +135,9 @@ function AdminChatDetailContent() {
         });
       })
       .subscribe();
+
     return () => { supabase.removeChannel(channel); };
-  }, [resolvedParams.id]);
+  }, [conversationId]);
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
 
@@ -79,26 +145,56 @@ function AdminChatDetailContent() {
     if (!newMsg.trim() || !user) return;
     setSending(true);
     try {
+      const msgText = newMsg.trim();
+      setNewMsg("");
+
+      let activeConvId = conversationId;
+
+      // ── Create Conversation Draft on first message send ─────────────────────────
+      if (!activeConvId) {
+        const newConvId = crypto.randomUUID();
+        const { error: convErr } = await supabase.from("conversations").insert({
+          id: newConvId,
+          resident_id: resolvedParams.resident_id,
+          subject: "Direct Message",
+          last_message: msgText,
+          last_message_at: new Date().toISOString(),
+          unread_admin: 0,
+          unread_resident: 1,
+        });
+
+        if (convErr) throw convErr;
+
+        activeConvId = newConvId;
+        setConversationId(newConvId);
+
+        // Update URL query parameter silently so it behaves like a standard active conversation
+        try {
+          const newUrl = `${window.location.pathname}?id=${newConvId}&resident_id=${resolvedParams.resident_id}`;
+          window.history.replaceState({ ...window.history.state, as: newUrl, url: newUrl }, "", newUrl);
+        } catch (_) {}
+      }
+
       const msgId = crypto.randomUUID();
       const msg: Message = {
         id: msgId,
         sender_id: user.id,
-        content: newMsg.trim(),
+        content: msgText,
         created_at: new Date().toISOString(),
       };
 
-      // Optimistically add to UI
+      // Optimistic UI update
       setMessages((prev) => [...prev, msg]);
-      setNewMsg("");
 
-      // Insert to DB
+      // Insert message to DB
       const { error: insertError } = await supabase.from("messages").insert({
         id: msgId,
-        conversation_id: resolvedParams.id,
+        conversation_id: activeConvId,
         sender_id: user.id,
-        content: msg.content,
+        content: msgText,
         created_at: msg.created_at,
       });
+
       if (insertError) {
         console.error("Insert error:", insertError);
         toast.error(`DB Error: ${insertError.message}`);
@@ -106,36 +202,50 @@ function AdminChatDetailContent() {
       }
 
       // Broadcast to other participant
-      await supabase.channel(`chat-${resolvedParams.id}`).send({
+      await supabase.channel(`chat-${activeConvId}`).send({
         type: "broadcast",
         event: "new-message",
         payload: msg,
       });
 
+      // Update last message pointer in conversation
       await supabase.from("conversations").update({
-        last_message: msg.content,
+        last_message: msgText,
         last_message_at: msg.created_at,
         unread_resident: 1,
-      }).eq("id", resolvedParams.id);
-      setNewMsg("");
-    } catch { toast.error("Failed to send message"); }
-    setSending(false);
+      }).eq("id", activeConvId);
+
+    } catch (err: any) {
+      toast.error(`Failed to send message: ${err.message || err}`);
+    } finally {
+      setSending(false);
+    }
   }
 
   return (
     <div className="flex flex-col h-screen pt-14" style={{ background: "var(--bg)" }}>
+      {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-themed" style={{ background: "var(--surface)" }}>
         <button onClick={() => router.back()} className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/5">
           <ArrowLeft size={18} style={{ color: "var(--text)" }} />
         </button>
         <div>
-          <p className="font-semibold text-sm" style={{ color: "var(--text)" }}>{subject}</p>
-          <p className="text-xs" style={{ color: "var(--text-muted)" }}>Resident</p>
+          <p className="font-semibold text-sm" style={{ color: "var(--text)" }}>{recipientName}</p>
+          <p className="text-xs" style={{ color: "var(--text-muted)" }}>{subject}</p>
         </div>
       </div>
 
+      {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-3 pb-24">
         {loading && <div className="flex justify-center py-8"><Loader2 size={24} className="animate-spin" style={{ color: "var(--primary)" }} /></div>}
+        
+        {!loading && messages.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <p className="text-xs" style={{ color: "var(--text-muted)" }}>No messages here yet.</p>
+            <p className="text-[10px]" style={{ color: "var(--text-muted)" }}>Send a message below to start the conversation.</p>
+          </div>
+        )}
+
         {messages.map((msg, i) => {
           const isMe = msg.sender_id === user?.id;
           return (
@@ -155,6 +265,7 @@ function AdminChatDetailContent() {
         <div ref={bottomRef} />
       </div>
 
+      {/* Input */}
       <div className="fixed bottom-0 left-0 right-0 px-4 py-3 border-t border-themed flex items-center gap-3 max-w-lg mx-auto"
         style={{ background: "var(--surface)", bottom: "64px" }}>
         <input value={newMsg} onChange={(e) => setNewMsg(e.target.value)}
