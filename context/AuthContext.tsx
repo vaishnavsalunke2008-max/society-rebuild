@@ -111,34 +111,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const cachedRt = await prefsGet("sh_rt");
 
         if (cachedProfile && cachedRt) {
-          // Instantly restore from cache — user sees dashboard immediately
+          // Restore session FIRST so API calls have valid auth from the start
+          if (cachedAt && cachedRt) {
+            try {
+              await Promise.race([
+                supabase.auth.setSession({ access_token: cachedAt, refresh_token: cachedRt }),
+                new Promise<void>(r => setTimeout(r, 5000)), // max 5s wait
+              ]);
+            } catch (_) {}
+          }
+
+          if (cancelled) { clearTimeout(safety); return; }
+
+          // Show cached profile instantly — dashboard is ready with valid session
           setUserState(cachedProfile);
           setAuthUserId(cachedProfile.id);
           setNeedsOnboarding(false);
-          setLoading(false); // ← Dashboard shows immediately, no network wait
+          setLoading(false);
           initDone.current = true;
           clearTimeout(safety);
 
-          // ── STEP 2 (background): Restore real session + refresh profile ──
-          // Do this silently after UI is shown
+          // Silently refresh profile from DB in background (no blocking)
           setTimeout(async () => {
             if (cancelled) return;
-            try {
-              // Restore session so API calls work
-              if (cachedAt && cachedRt) {
-                await supabase.auth.setSession({
-                  access_token: cachedAt,
-                  refresh_token: cachedRt,
-                });
-              }
-              // Refresh profile from DB in background
-              const fresh = await fetchAndCacheProfile(cachedProfile.id);
-              if (fresh && !cancelled) {
-                setUserState(fresh);
-                setAuthUserId(fresh.id);
-              }
-            } catch (_) {}
-          }, 1500);
+            const fresh = await fetchAndCacheProfile(cachedProfile.id);
+            if (fresh && !cancelled) {
+              setUserState(fresh);
+              setAuthUserId(fresh.id);
+            }
+          }, 500);
 
           setupListener();
           return;
