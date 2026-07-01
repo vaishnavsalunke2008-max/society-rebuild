@@ -74,7 +74,7 @@ export default function ProfilePage() {
           <div className="relative">
             {user.avatar_url ? (
               <div className="w-24 h-24 rounded-full overflow-hidden ring-4 ring-primary-500/30">
-                <img src={user.avatar_url} alt={user.full_name} className="object-cover w-full h-full" />
+                <img src={user.avatar_url} alt={user.full_name} className="object-cover w-full h-full" referrerPolicy="no-referrer" />
               </div>
             ) : (
               <div className="w-24 h-24 rounded-full bg-gradient-to-br from-primary-400 to-primary-700 flex items-center justify-center text-white text-3xl font-bold ring-4 ring-primary-500/30">

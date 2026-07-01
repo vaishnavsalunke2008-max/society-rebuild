@@ -210,7 +210,7 @@ export default function CommunityPage() {
             <div className="glass rounded-2xl p-4 space-y-3">
               <div className="flex items-center gap-3">
                 {user?.avatar_url ? (
-                  <img src={user.avatar_url} alt="Profile" className="w-9 h-9 rounded-full object-cover" />
+                  <img src={user.avatar_url} alt="Profile" className="w-9 h-9 rounded-full object-cover" referrerPolicy="no-referrer" />
                 ) : (
                   <div className="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white text-sm font-bold">
                     {getInitials(user?.full_name || "U")}
@@ -302,7 +302,7 @@ export default function CommunityPage() {
           <div className="p-4">
             <div className="flex items-center gap-3 mb-3">
               {post.users?.avatar_url ? (
-                <img src={post.users.avatar_url} alt="Profile" className="w-10 h-10 rounded-full object-cover flex-shrink-0 shadow-sm" />
+                <img src={post.users.avatar_url} alt="Profile" className="w-10 h-10 rounded-full object-cover flex-shrink-0 shadow-sm" referrerPolicy="no-referrer" />
               ) : (
                 <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
                   {getInitials(post.users?.full_name || "U")}
@@ -366,7 +366,7 @@ export default function CommunityPage() {
                     {comments[post.id]?.map((c) => (
                       <div key={c.id} className="flex gap-2">
                         {c.users?.avatar_url ? (
-                          <img src={c.users.avatar_url} alt="Profile" className="w-6 h-6 rounded-full object-cover flex-shrink-0" />
+                          <img src={c.users.avatar_url} alt="Profile" className="w-6 h-6 rounded-full object-cover flex-shrink-0" referrerPolicy="no-referrer" />
                         ) : (
                           <div className="w-6 h-6 rounded-full bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white font-bold text-[10px] flex-shrink-0">
                             {getInitials(c.users?.full_name || "U")}

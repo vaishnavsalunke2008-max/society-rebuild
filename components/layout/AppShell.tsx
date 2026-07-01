@@ -169,7 +169,7 @@ function Sidebar({ open, onClose, role }: { open: boolean; onClose: () => void; 
             <div className="p-4 border-t border-themed">
               <div className="flex items-center gap-3 p-3 rounded-xl" style={{ background: "var(--surface-2)" }}>
                 {user?.avatar_url ? (
-                  <img src={user.avatar_url} alt="Profile" className="w-10 h-10 rounded-full object-cover shadow-sm flex-shrink-0" />
+                  <img src={user.avatar_url} alt="Profile" className="w-10 h-10 rounded-full object-cover shadow-sm flex-shrink-0" referrerPolicy="no-referrer" />
                 ) : (
                   <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-500 to-primary-700 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
                     {getInitials(user?.full_name || "U")}
@@ -210,7 +210,7 @@ function TopHeader({ onMenuClick }: { onMenuClick: () => void }) {
         <button id="avatar-btn" onClick={() => setDropOpen(!dropOpen)}
           className="w-9 h-9 rounded-full overflow-hidden bg-gradient-to-br from-primary-500 to-primary-700 flex items-center justify-center text-white text-sm font-semibold">
           {user?.avatar_url ? (
-            <img src={user.avatar_url} alt="Profile" className="w-full h-full object-cover" />
+            <img src={user.avatar_url} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
           ) : (
             getInitials(user?.full_name || "U")
           )}

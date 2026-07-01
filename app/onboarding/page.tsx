@@ -73,7 +73,7 @@ export default function OnboardingPage() {
         full_name: fullName.trim(),
         flat_number: flatNumber.trim().toUpperCase() || "—",
         role,
-        avatar_url: userData.user?.user_metadata?.avatar_url ?? null,
+        avatar_url: userData.user?.user_metadata?.avatar_url ?? userData.user?.user_metadata?.picture ?? null,
       };
 
       const { error } = await supabase.from("users").upsert(profile);
