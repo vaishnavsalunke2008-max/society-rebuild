@@ -224,7 +224,8 @@ function TopHeader({ onMenuClick }: { onMenuClick: () => void }) {
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: -8 }}
                 transition={{ duration: 0.15 }}
-                className="absolute right-0 top-11 w-56 rounded-2xl shadow-xl z-20 overflow-hidden glass"
+                className="absolute right-0 top-11 w-56 rounded-2xl shadow-xl z-20 overflow-hidden"
+                style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
               >
                 <div className="p-4 border-b border-themed">
                   <p className="font-semibold text-sm" style={{ color: "var(--text)" }}>{user?.full_name}</p>
