@@ -51,13 +51,16 @@ export default function ComplaintsPage() {
 
   async function loadComplaints() {
     if (!user) return;
-    const { data } = await supabase
-      .from("complaints")
-      .select("*")
-      .eq("submitted_by", user.id)
-      .order("created_at", { ascending: false });
-    setComplaints((data as Complaint[]) || []);
-    setLoading(false);
+    try {
+      const { data } = await supabase
+        .from("complaints")
+        .select("*")
+        .eq("submitted_by", user.id)
+        .order("created_at", { ascending: false });
+      setComplaints((data as Complaint[]) || []);
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => { loadComplaints(); }, [user]);

@@ -111,19 +111,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const cachedRt = await prefsGet("sh_rt");
 
         if (cachedProfile && cachedRt) {
-          // Restore session FIRST so API calls have valid auth from the start
+          // Restore session from Preferences tokens
           if (cachedAt && cachedRt) {
             try {
               await Promise.race([
                 supabase.auth.setSession({ access_token: cachedAt, refresh_token: cachedRt }),
-                new Promise<void>(r => setTimeout(r, 5000)), // max 5s wait
+                new Promise<void>(r => setTimeout(r, 8000)),
               ]);
             } catch (_) {}
           }
 
+          // CRITICAL: Call getUser() to force any pending token refresh to complete.
+          // Without this, page queries queue behind an in-progress refresh and hang forever.
+          let sessionVerified = false;
+          try {
+            const userResult = await Promise.race([
+              supabase.auth.getUser(),
+              new Promise<null>(r => setTimeout(() => r(null), 8000)),
+            ]);
+            sessionVerified = !!(userResult && "data" in userResult && userResult.data.user);
+          } catch (_) {}
+
           if (cancelled) { clearTimeout(safety); return; }
 
-          // Show cached profile instantly — dashboard is ready with valid session
+          if (!sessionVerified) {
+            // Session couldn't be verified (refresh token expired or no network)
+            // Clear stale cache and show login
+            await clearSession();
+            setUserState(null); setNeedsOnboarding(false);
+            setAuthUserId(null); setLoading(false);
+            initDone.current = true;
+            clearTimeout(safety);
+            setupListener();
+            return;
+          }
+
+          // Session verified and fully ready — show dashboard
           setUserState(cachedProfile);
           setAuthUserId(cachedProfile.id);
           setNeedsOnboarding(false);
@@ -131,7 +154,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           initDone.current = true;
           clearTimeout(safety);
 
-          // Silently refresh profile from DB in background (no blocking)
+          // Silently refresh profile from DB in background
           setTimeout(async () => {
             if (cancelled) return;
             const fresh = await fetchAndCacheProfile(cachedProfile.id);

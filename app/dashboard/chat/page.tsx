@@ -39,13 +39,16 @@ export default function ChatPage() {
 
   async function loadConversations() {
     if (!user) return;
-    const { data } = await supabase
-      .from("conversations")
-      .select("*")
-      .eq("resident_id", user.id)
-      .order("last_message_at", { ascending: false });
-    setConversations((data as Conversation[]) || []);
-    setLoading(false);
+    try {
+      const { data } = await supabase
+        .from("conversations")
+        .select("*")
+        .eq("resident_id", user.id)
+        .order("last_message_at", { ascending: false });
+      setConversations((data as Conversation[]) || []);
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => { loadConversations(); }, [user]);

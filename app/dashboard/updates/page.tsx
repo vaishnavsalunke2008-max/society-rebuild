@@ -33,14 +33,17 @@ export default function UpdatesPage() {
 
   useEffect(() => {
     const supabase = createClient();
-    supabase
-      .from("notices")
-      .select("*, users(full_name)")
-      .order("created_at", { ascending: false })
-      .then(({ data }) => {
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from("notices")
+          .select("*, users(full_name)")
+          .order("created_at", { ascending: false });
         setNotices((data as Notice[]) || []);
+      } finally {
         setLoading(false);
-      });
+      }
+    })();
   }, []);
 
   return (

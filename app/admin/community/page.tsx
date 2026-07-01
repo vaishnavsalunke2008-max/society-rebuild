@@ -42,19 +42,22 @@ export default function AdminCommunityPage() {
   const supabase = createClient();
 
   async function loadPosts() {
-    const { data } = await supabase
-      .from("posts")
-      .select("*, users!author_id(full_name, flat_number, role, avatar_url)")
-      .order("created_at", { ascending: false });
+    try {
+      const { data } = await supabase
+        .from("posts")
+        .select("*, users!author_id(full_name, flat_number, role, avatar_url)")
+        .order("created_at", { ascending: false });
 
-    if (data && user) {
-      const { data: likes } = await supabase.from("post_likes").select("post_id").eq("user_id", user.id);
-      const likedIds = new Set((likes || []).map((l) => l.post_id));
-      setPosts((data as Post[]).map((p) => ({ ...p, liked: likedIds.has(p.id) })));
-    } else {
-      setPosts((data as Post[]) || []);
+      if (data && user) {
+        const { data: likes } = await supabase.from("post_likes").select("post_id").eq("user_id", user.id);
+        const likedIds = new Set((likes || []).map((l) => l.post_id));
+        setPosts((data as Post[]).map((p) => ({ ...p, liked: likedIds.has(p.id) })));
+      } else {
+        setPosts((data as Post[]) || []);
+      }
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
 
   async function toggleLike(post: Post) {

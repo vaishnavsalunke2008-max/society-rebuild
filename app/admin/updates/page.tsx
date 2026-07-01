@@ -31,12 +31,15 @@ export default function AdminUpdatesPage() {
   const supabase = createClient();
 
   async function loadComplaints() {
-    const { data } = await supabase
-      .from("complaints")
-      .select("*, users(full_name, flat_number)")
-      .order("created_at", { ascending: false });
-    setComplaints((data as Complaint[]) || []);
-    setLoading(false);
+    try {
+      const { data } = await supabase
+        .from("complaints")
+        .select("*, users(full_name, flat_number)")
+        .order("created_at", { ascending: false });
+      setComplaints((data as Complaint[]) || []);
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => { loadComplaints(); }, []);

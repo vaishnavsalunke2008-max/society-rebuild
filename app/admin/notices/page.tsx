@@ -45,12 +45,15 @@ export default function AdminNoticesPage() {
   const supabase = createClient();
 
   async function loadNotices() {
-    const { data } = await supabase
-      .from("notices")
-      .select("*, users(full_name)")
-      .order("created_at", { ascending: false });
-    setNotices((data as Notice[]) || []);
-    setLoading(false);
+    try {
+      const { data } = await supabase
+        .from("notices")
+        .select("*, users(full_name)")
+        .order("created_at", { ascending: false });
+      setNotices((data as Notice[]) || []);
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => { loadNotices(); }, []);

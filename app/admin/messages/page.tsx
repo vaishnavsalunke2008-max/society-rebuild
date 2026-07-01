@@ -26,14 +26,17 @@ export default function AdminMessagesPage() {
   const supabase = createClient();
 
   useEffect(() => {
-    supabase
-      .from("conversations")
-      .select("*, users:resident_id(full_name, flat_number)")
-      .order("last_message_at", { ascending: false })
-      .then(({ data }) => {
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from("conversations")
+          .select("*, users:resident_id(full_name, flat_number)")
+          .order("last_message_at", { ascending: false });
         setConversations((data as Conversation[]) || []);
+      } finally {
         setLoading(false);
-      });
+      }
+    })();
   }, []);
 
   const totalUnread = conversations.reduce((sum, c) => sum + (c.unread_admin || 0), 0);

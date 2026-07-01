@@ -32,29 +32,32 @@ function AdminChatDetailContent() {
 
   useEffect(() => {
     async function load() {
-      const { data: conv } = await supabase
-        .from("conversations")
-        .select("subject, resident_id")
-        .eq("id", resolvedParams.id)
-        .single();
-      if (conv) { setSubject(conv.subject); }
+      try {
+        const { data: conv } = await supabase
+          .from("conversations")
+          .select("subject, resident_id")
+          .eq("id", resolvedParams.id)
+          .single();
+        if (conv) { setSubject(conv.subject); }
 
-      const { data, error: selectError } = await supabase
-        .from("messages")
-        .select("*")
-        .eq("conversation_id", resolvedParams.id)
-        .order("created_at", { ascending: true });
+        const { data, error: selectError } = await supabase
+          .from("messages")
+          .select("*")
+          .eq("conversation_id", resolvedParams.id)
+          .order("created_at", { ascending: true });
+          
+        if (selectError) {
+          console.error("Select error:", selectError);
+          toast.error(`DB Read Error: ${selectError.message}`);
+        }
         
-      if (selectError) {
-        console.error("Select error:", selectError);
-        toast.error(`DB Read Error: ${selectError.message}`);
-      }
-      
-      setMessages((data as Message[]) || []);
-      setLoading(false);
+        setMessages((data as Message[]) || []);
 
-      // Mark as read
-      await supabase.from("conversations").update({ unread_admin: 0 }).eq("id", resolvedParams.id);
+        // Mark as read
+        await supabase.from("conversations").update({ unread_admin: 0 }).eq("id", resolvedParams.id);
+      } finally {
+        setLoading(false);
+      }
     }
     load();
 

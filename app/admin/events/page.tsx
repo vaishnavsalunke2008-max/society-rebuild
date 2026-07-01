@@ -33,9 +33,12 @@ export default function AdminEventsPage() {
   const supabase = createClient();
 
   async function loadEvents() {
-    const { data } = await supabase.from("events").select("*").order("event_date", { ascending: true });
-    setEvents((data as Event[]) || []);
-    setLoading(false);
+    try {
+      const { data } = await supabase.from("events").select("*").order("event_date", { ascending: true });
+      setEvents((data as Event[]) || []);
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => { loadEvents(); }, []);

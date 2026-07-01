@@ -31,31 +31,34 @@ export default function EventsPage() {
   const supabase = createClient();
 
   async function loadEvents() {
-    const { data: evts } = await supabase
-      .from("events")
-      .select("*")
-      .order("event_date", { ascending: true });
+    try {
+      const { data: evts } = await supabase
+        .from("events")
+        .select("*")
+        .order("event_date", { ascending: true });
 
-    if (!evts) { setLoading(false); return; }
+      if (!evts) { return; }
 
-    // Get RSVP counts + user RSVPs
-    const { data: rsvps } = await supabase.from("event_rsvps").select("event_id, user_id");
-    const { data: myRsvps } = user
-      ? await supabase.from("event_rsvps").select("event_id").eq("user_id", user.id)
-      : { data: [] };
+      // Get RSVP counts + user RSVPs
+      const { data: rsvps } = await supabase.from("event_rsvps").select("event_id, user_id");
+      const { data: myRsvps } = user
+        ? await supabase.from("event_rsvps").select("event_id").eq("user_id", user.id)
+        : { data: [] };
 
-    const mySet = new Set((myRsvps || []).map((r) => r.event_id));
-    const countMap: Record<string, number> = {};
-    (rsvps || []).forEach((r) => { countMap[r.event_id] = (countMap[r.event_id] || 0) + 1; });
+      const mySet = new Set((myRsvps || []).map((r) => r.event_id));
+      const countMap: Record<string, number> = {};
+      (rsvps || []).forEach((r) => { countMap[r.event_id] = (countMap[r.event_id] || 0) + 1; });
 
-    setEvents(
-      evts.map((e) => ({
-        ...e,
-        rsvp_count: countMap[e.id] || 0,
-        rsvped: mySet.has(e.id),
-      }))
-    );
-    setLoading(false);
+      setEvents(
+        evts.map((e) => ({
+          ...e,
+          rsvp_count: countMap[e.id] || 0,
+          rsvped: mySet.has(e.id),
+        }))
+      );
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => { loadEvents(); }, []);
