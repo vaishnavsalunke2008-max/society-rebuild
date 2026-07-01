@@ -27,22 +27,38 @@ const AuthContext = createContext<AuthContextType>({
   setUser: () => {}, signOut: async () => {},
 });
 
-async function saveTokens(session: Session) {
-  try {
-    const { Preferences } = await import("@capacitor/preferences");
-    await Preferences.set({ key: "sh_rt", value: session.refresh_token ?? "" });
-    await Preferences.set({ key: "sh_at", value: session.access_token });
-  } catch (_) {}
+// ── Capacitor Preferences helpers ─────────────────────────────────────────────
+async function prefsSet(key: string, value: string) {
+  try { const { Preferences } = await import("@capacitor/preferences"); await Preferences.set({ key, value }); } catch (_) {}
+}
+async function prefsGet(key: string): Promise<string | null> {
+  try { const { Preferences } = await import("@capacitor/preferences"); const { value } = await Preferences.get({ key }); return value; } catch (_) { return null; }
+}
+async function prefsRemove(key: string) {
+  try { const { Preferences } = await import("@capacitor/preferences"); await Preferences.remove({ key }); } catch (_) {}
 }
 
-async function clearTokens() {
-  try {
-    const { Preferences } = await import("@capacitor/preferences");
-    await Preferences.remove({ key: "sh_rt" });
-    await Preferences.remove({ key: "sh_at" });
-  } catch (_) {}
+async function saveSession(session: Session) {
+  await prefsSet("sh_rt", session.refresh_token ?? "");
+  await prefsSet("sh_at", session.access_token);
+}
+async function clearSession() {
+  await prefsRemove("sh_rt");
+  await prefsRemove("sh_at");
+  await prefsRemove("sh_profile");
 }
 
+// Save entire profile to Preferences so it loads instantly on next startup
+async function cacheProfile(profile: UserProfile) {
+  await prefsSet("sh_profile", JSON.stringify(profile));
+}
+async function getCachedProfile(): Promise<UserProfile | null> {
+  const raw = await prefsGet("sh_profile");
+  if (!raw) return null;
+  try { return JSON.parse(raw) as UserProfile; } catch { return null; }
+}
+
+// ── Component ─────────────────────────────────────────────────────────────────
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [userState, setUserState] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -60,158 +76,114 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let cancelled = false;
     let capAppListener: any = null;
 
-    // ── Profile fetch with automatic retry (handles cold-start network delays) ──
-    async function loadProfile(uid: string) {
-      if (cancelled) return;
-      setAuthUserId(uid);
+    // ── Fetch profile from DB and cache it ────────────────────────────────────
+    async function fetchAndCacheProfile(uid: string): Promise<UserProfile | null> {
+      try {
+        const { data: profile, error } = await supabase
+          .from("users").select("*").eq("id", uid).maybeSingle();
+        if (error || !profile) return null;
 
-      const MAX_ATTEMPTS = 5;
-      const RETRY_DELAY_MS = 2000;
-
-      for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-        if (cancelled) return;
-        try {
-          const { data: profile, error } = await supabase
-            .from("users").select("*").eq("id", uid).maybeSingle();
-
-          if (cancelled) return;
-          if (error) {
-            console.warn(`loadProfile attempt ${attempt} error:`, error.message);
-            if (attempt < MAX_ATTEMPTS) {
-              await new Promise(r => setTimeout(r, RETRY_DELAY_MS));
-              continue;
-            }
-            // All attempts failed — stop loading, keep authUserId so layout doesn't redirect to login
-            // User will see blank screen; safety timer will stop loading
-            setUserState(null);
-            setNeedsOnboarding(false);
-            break;
-          }
-
-          if (profile) {
-            let avatarUrl = profile.avatar_url;
-            if (!avatarUrl) {
-              try {
-                const { data: au } = await supabase.auth.getUser();
-                const m = au.user?.user_metadata;
-                avatarUrl = m?.avatar_url ?? m?.picture ?? null;
-                if (avatarUrl) supabase.from("users").update({ avatar_url: avatarUrl }).eq("id", uid).then(() => {});
-              } catch (_) {}
-            }
-            setUserState({ ...(profile as UserProfile), avatar_url: avatarUrl });
-            setNeedsOnboarding(false);
-          } else {
-            setUserState(null);
-            setNeedsOnboarding(true); // Genuine new user
-          }
-          break; // success
-        } catch (e) {
-          console.warn(`loadProfile attempt ${attempt} exception:`, e);
-          if (attempt < MAX_ATTEMPTS) await new Promise(r => setTimeout(r, RETRY_DELAY_MS));
+        let avatarUrl = profile.avatar_url;
+        if (!avatarUrl) {
+          try {
+            const { data: au } = await supabase.auth.getUser();
+            const m = au.user?.user_metadata;
+            avatarUrl = m?.avatar_url ?? m?.picture ?? null;
+            if (avatarUrl) supabase.from("users").update({ avatar_url: avatarUrl }).eq("id", uid).then(() => {});
+          } catch (_) {}
         }
-      }
-
-      if (!cancelled) setLoading(false);
+        const p = { ...(profile as UserProfile), avatar_url: avatarUrl };
+        await cacheProfile(p); // Save to Preferences for next cold start
+        return p;
+      } catch (_) { return null; }
     }
 
-    // ── Exchange OAuth code (marks it used before attempting to prevent stale reuse) ──
-    async function exchangeCode(code: string): Promise<Session | null> {
-      try {
-        const { Preferences } = await import("@capacitor/preferences");
-        const { value: last } = await Preferences.get({ key: "sh_lc" });
-        if (last === code) return null;
-        await Preferences.set({ key: "sh_lc", value: code });
-      } catch (_) {}
-      const { data, error } = await supabase.auth.exchangeCodeForSession(code);
-      if (error) { console.error("Code exchange error:", error.message); return null; }
-      if (data.session) await saveTokens(data.session);
-      return data.session;
-    }
-
-    // ── Handle OAuth deep-link URL ─────────────────────────────────────────────
-    async function handleDeepLink(url: string) {
-      if (!url.includes("code=")) return;
-      const code = new URL(url).searchParams.get("code");
-      if (!code) return;
-      const { data: cur } = await supabase.auth.getSession();
-      if (cur.session?.user) {
-        try { const { Browser } = await import("@capacitor/browser"); await Browser.close(); } catch (_) {}
-        if (!userState) await loadProfile(cur.session.user.id);
-        return;
-      }
-      const session = await exchangeCode(code);
-      if (session?.user) await loadProfile(session.user.id);
-      try { const { Browser } = await import("@capacitor/browser"); await Browser.close(); } catch (_) {}
-    }
-
-    // ── Register deep-link listener IMMEDIATELY so fresh logins never get stuck ──
-    async function setupListener() {
-      try {
-        const { Capacitor } = await import("@capacitor/core");
-        if (!Capacitor.isNativePlatform()) return;
-        const { App } = await import("@capacitor/app");
-        capAppListener = await App.addListener("appUrlOpen", e => handleDeepLink(e.url));
-      } catch (e) { console.error("listener:", e); }
-    }
-    setupListener(); // fire and forget — doesn't block init
-
-    // ── Main init ─────────────────────────────────────────────────────────────
+    // ── Main startup flow ─────────────────────────────────────────────────────
     async function init() {
       const safety = setTimeout(() => {
         if (!cancelled && !initDone.current) { setLoading(false); initDone.current = true; }
-      }, 30000);
+      }, 20000);
 
       try {
-        let isNative = false;
-        try {
-          const { Capacitor } = await import("@capacitor/core");
-          isNative = Capacitor.isNativePlatform();
-        } catch (_) {}
+        // ── STEP 1: Try to show cached profile INSTANTLY (no network) ──────
+        const cachedProfile = await getCachedProfile();
+        const cachedAt = await prefsGet("sh_at");
+        const cachedRt = await prefsGet("sh_rt");
 
-        // Give Android network stack 800ms to initialize on cold start
-        if (isNative) await new Promise(r => setTimeout(r, 800));
-        if (cancelled) { clearTimeout(safety); return; }
+        if (cachedProfile && cachedRt) {
+          // Instantly restore from cache — user sees dashboard immediately
+          setUserState(cachedProfile);
+          setAuthUserId(cachedProfile.id);
+          setNeedsOnboarding(false);
+          setLoading(false); // ← Dashboard shows immediately, no network wait
+          initDone.current = true;
+          clearTimeout(safety);
 
-        // ── 1. Try localStorage session (fastest path) ──────────────────────
+          // ── STEP 2 (background): Restore real session + refresh profile ──
+          // Do this silently after UI is shown
+          setTimeout(async () => {
+            if (cancelled) return;
+            try {
+              // Restore session so API calls work
+              if (cachedAt && cachedRt) {
+                await supabase.auth.setSession({
+                  access_token: cachedAt,
+                  refresh_token: cachedRt,
+                });
+              }
+              // Refresh profile from DB in background
+              const fresh = await fetchAndCacheProfile(cachedProfile.id);
+              if (fresh && !cancelled) {
+                setUserState(fresh);
+                setAuthUserId(fresh.id);
+              }
+            } catch (_) {}
+          }, 1500);
+
+          setupListener();
+          return;
+        }
+
+        // ── STEP 3: No cache. Check localStorage session (fresh install) ──
         let session: Session | null = null;
         const { data: sd } = await supabase.auth.getSession();
         session = sd.session;
 
-        // ── 2. No localStorage session — try Preferences backup ─────────────
-        if (!session && isNative) {
+        // ── STEP 4: Try Preferences tokens if localStorage is empty ────────
+        if (!session && cachedRt && cachedAt) {
           try {
-            const { Preferences } = await import("@capacitor/preferences");
-            const { value: rt } = await Preferences.get({ key: "sh_rt" });
-            const { value: at } = await Preferences.get({ key: "sh_at" });
-            if (rt && at) {
-              console.log("Restoring session from Preferences...");
-              const result = await Promise.race([
-                supabase.auth.setSession({ access_token: at, refresh_token: rt }),
-                new Promise<null>(r => setTimeout(() => r(null), 12000)),
-              ]);
-              const restored = result && "data" in result ? result.data?.session : null;
-              if (restored) {
-                session = restored;
-                await saveTokens(session);
-                console.log("Session restored from Preferences ✓");
-              } else {
-                console.warn("Preferences restore failed or timed out");
-              }
-            }
-          } catch (e) { console.warn("Prefs read error:", e); }
+            const result = await Promise.race([
+              supabase.auth.setSession({ access_token: cachedAt, refresh_token: cachedRt }),
+              new Promise<null>(r => setTimeout(() => r(null), 10000)),
+            ]);
+            if (result && "data" in result) session = result.data?.session ?? null;
+            if (session) await saveSession(session);
+          } catch (_) {}
         }
 
         if (cancelled) { clearTimeout(safety); return; }
 
-        // ── 3. Have session → load profile (with retries) ───────────────────
         if (session?.user) {
-          await loadProfile(session.user.id);
+          setAuthUserId(session.user.id);
+          const profile = await fetchAndCacheProfile(session.user.id);
+          if (cancelled) { clearTimeout(safety); return; }
+          if (profile) {
+            setUserState(profile);
+            setNeedsOnboarding(false);
+          } else {
+            setNeedsOnboarding(true); // new user, no profile yet
+          }
+          setLoading(false);
           initDone.current = true;
           clearTimeout(safety);
+          setupListener();
           return;
         }
 
-        // ── 4. No session — check launch URL for fresh OAuth code ────────────
+        // ── STEP 5: Check launch URL for OAuth code ─────────────────────────
+        let isNative = false;
+        try { const { Capacitor } = await import("@capacitor/core"); isNative = Capacitor.isNativePlatform(); } catch (_) {}
+
         if (isNative) {
           try {
             const { App } = await import("@capacitor/app");
@@ -219,51 +191,102 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             if (launch?.url?.includes("code=")) {
               const code = new URL(launch.url).searchParams.get("code");
               if (code) {
-                const fresh = await exchangeCode(code);
-                if (fresh?.user) {
-                  await loadProfile(fresh.user.id);
-                  initDone.current = true;
-                  clearTimeout(safety);
-                  return;
+                const lastCode = await prefsGet("sh_lc");
+                if (lastCode !== code) {
+                  await prefsSet("sh_lc", code);
+                  const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+                  if (!error && data.session) {
+                    await saveSession(data.session);
+                    const profile = await fetchAndCacheProfile(data.session.user.id);
+                    if (!cancelled && profile) {
+                      setUserState(profile);
+                      setAuthUserId(data.session.user.id);
+                      setNeedsOnboarding(false);
+                      setLoading(false);
+                      initDone.current = true;
+                      clearTimeout(safety);
+                      setupListener();
+                      return;
+                    }
+                  }
                 }
+                try { const { Browser } = await import("@capacitor/browser"); await Browser.close(); } catch (_) {}
               }
             }
           } catch (_) {}
         }
 
-        // ── 5. Truly no session → show login ────────────────────────────────
+        // ── STEP 6: Truly no session ─────────────────────────────────────────
         if (!cancelled) {
           setUserState(null); setNeedsOnboarding(false);
           setAuthUserId(null); setLoading(false);
         }
+        setupListener();
+
       } catch (err) {
         console.error("init error:", err);
-        if (!cancelled) {
-          setUserState(null); setNeedsOnboarding(false);
-          setAuthUserId(null); setLoading(false);
-        }
+        if (!cancelled) { setUserState(null); setNeedsOnboarding(false); setAuthUserId(null); setLoading(false); }
+        setupListener();
       } finally {
         initDone.current = true;
         clearTimeout(safety);
       }
     }
 
+    // ── Deep link listener for live OAuth callbacks ───────────────────────────
+    function setupListener() {
+      (async () => {
+        try {
+          const { Capacitor } = await import("@capacitor/core");
+          if (!Capacitor.isNativePlatform()) return;
+          const { App } = await import("@capacitor/app");
+          if (capAppListener) return; // already set up
+          capAppListener = await App.addListener("appUrlOpen", async (e) => {
+            if (!e.url.includes("code=")) return;
+            const code = new URL(e.url).searchParams.get("code");
+            if (!code) return;
+            const lastCode = await prefsGet("sh_lc");
+            if (lastCode === code) return;
+            await prefsSet("sh_lc", code);
+
+            const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+            if (!error && data.session) {
+              await saveSession(data.session);
+              const profile = await fetchAndCacheProfile(data.session.user.id);
+              if (profile && !cancelled) {
+                setUserState(profile);
+                setAuthUserId(data.session.user.id);
+                setNeedsOnboarding(false);
+                setLoading(false);
+              }
+            }
+            try { const { Browser } = await import("@capacitor/browser"); await Browser.close(); } catch (_) {}
+          });
+        } catch (_) {}
+      })();
+    }
+
+    // Set up listener immediately (so fresh login never gets stuck)
+    setupListener();
     init();
 
+    // ── Auth state changes ────────────────────────────────────────────────────
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (cancelled) return;
       if (event === "SIGNED_IN" && session?.user) {
-        await saveTokens(session);
-        await loadProfile(session.user.id);
+        await saveSession(session);
+        const profile = await fetchAndCacheProfile(session.user.id);
+        if (profile && !cancelled) {
+          setUserState(profile); setAuthUserId(session.user.id); setNeedsOnboarding(false); setLoading(false);
+        } else if (!cancelled) {
+          setAuthUserId(session.user.id); setNeedsOnboarding(true); setLoading(false);
+        }
       } else if (event === "TOKEN_REFRESHED" && session) {
-        await saveTokens(session);
+        await saveSession(session);
       } else if (event === "SIGNED_OUT") {
         if (!initDone.current) return;
-        await clearTokens();
-        if (!cancelled) {
-          setUserState(null); setNeedsOnboarding(false);
-          setAuthUserId(null); setLoading(false);
-        }
+        await clearSession();
+        if (!cancelled) { setUserState(null); setNeedsOnboarding(false); setAuthUserId(null); setLoading(false); }
       }
     });
 
@@ -276,10 +299,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   async function signOut() {
-    await clearTokens();
+    await clearSession();
     await createClient().auth.signOut();
-    setUserState(null); setNeedsOnboarding(false);
-    setAuthUserId(null); setLoading(false);
+    setUserState(null); setNeedsOnboarding(false); setAuthUserId(null); setLoading(false);
   }
 
   return (
